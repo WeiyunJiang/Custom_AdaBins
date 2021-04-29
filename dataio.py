@@ -31,7 +31,7 @@ class Depth_Dataset(Dataset):
             elif split == 'test':
                 with open("./train_test_inputs/nyudepthv2_test_files_with_gt.txt", 'r') as f:
                     self.filenames = f.readlines()
-                    self.data_pth = './dataset/nyu_depth_v2/sync'
+                    self.data_pth = './dataset/nyu_depth_v2/official_splits/test/'
             else:
                 raise NotImplementedError('Not implemented for split={split}')
                 
@@ -62,8 +62,12 @@ class Depth_Dataset(Dataset):
     def __getitem__(self, idx):
         sample_path = self.filenames[idx]
         if self.data_name == 'nyu':
-            image_path = self.data_pth + sample_path.split()[0]
-            depth_path = self.data_pth + sample_path.split()[1]
+            if self.split == 'train':
+                image_path = self.data_pth + sample_path.split()[0]
+                depth_path = self.data_pth + sample_path.split()[1]
+            elif self.split == 'test':
+                image_path = self.data_pth + sample_path.split()[0]
+                depth_path = self.data_pth + sample_path.split()[1]
 
         image = Image.open(image_path)
         depth_gt = Image.open(depth_path)
@@ -81,7 +85,7 @@ class Depth_Dataset(Dataset):
             depth_gt = depth_gt.crop((43, 45, 608, 472))
             image = image.crop((43, 45, 608, 472))
         
-        image = np.asarray(image, dtype=np.float32) / 255.0
+        image = np.asarray(image, dtype=np.uint8) 
         depth_gt = np.asarray(depth_gt, dtype=np.float32)
         depth_gt = np.expand_dims(depth_gt, axis=2)
 
@@ -92,7 +96,7 @@ class Depth_Dataset(Dataset):
         else:
             raise NotImplementedError('Not implemented for data_name={data_name}')
 
-        image = self.transform_image(image)
+        image = self.transform_depth(image)
         depth_gt = self.transform_depth(depth_gt)
         sample = {'image': image, 'depth': depth_gt}
         
@@ -114,12 +118,12 @@ if __name__ == '__main__':
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     
     output_size = (320, 240)
-    for i, batch in enumerate(train_data_loader):
+    for i, batch in enumerate(test_data_loader):
         print(i)
         print(batch['image'].shape)
         print(batch['depth'].shape)
         image = batch['image']
         model = VGG_16(output_size=output_size)
         out = model(image)
-        print(out)
+        print(out.shape)
     pass

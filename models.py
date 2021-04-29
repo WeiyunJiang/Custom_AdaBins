@@ -14,11 +14,11 @@ class VGG_16(nn.Module):
     
         
     """
-    def __init__(self, output_size=(80, 60)):
+    def __init__(self, output_size=(320, 240)):
         super(VGG_16, self).__init__()
         self.output_size = output_size
         self.vgg = vgg16_bn(pretrained=True)
-        self.vgg.classifier._modules['6'] = nn.Linear(4096, 4800)
+        self.vgg.classifier._modules['6'] = nn.Linear(4096, output_size[0]*output_size[1])
         self.transform = torch.nn.functional.interpolate
         
     def forward(self, image):
