@@ -32,24 +32,24 @@ class VGG_16(nn.Module):
         return out
 
 class PatchTransformerEncoder(nn.Module):
-    def __init__(self, in_channels, patch_size=10, embedding_dim=128, num_heads=4):
+    def __init__(self, in_channels, patch_size=16, embedding_dim=128, num_heads=4):
         super(PatchTransformerEncoder, self).__init__()
         encoder_layers = nn.TransformerEncoderLayer(embedding_dim, num_heads, dim_feedforward=1024)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers=4)  # takes shape S,N,E
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers=4)  
 
         self.embedding_convPxP = nn.Conv2d(in_channels, embedding_dim,
                                            kernel_size=patch_size, stride=patch_size, padding=0)
-
-        self.positional_encodings = nn.Parameter(torch.rand(500, embedding_dim), requires_grad=True)
+        n_patches = int((320 / patch_size) * (240 / patch_size))
+        self.pos_enc = nn.Parameter(torch.rand((1, embedding_dim, n_patches)))
 
     def forward(self, x):
-        embeddings = self.embedding_convPxP(x).flatten(2)  # .shape = n,c,s = n, embedding_dim, s
-        # embeddings = nn.functional.pad(embeddings, (1,0))  # extra special token at start ?
-        embeddings = embeddings + self.positional_encodings[:embeddings.shape[2], :].T.unsqueeze(0)
-
-        # change to S,N,E format required by transformer
-        embeddings = embeddings.permute(2, 0, 1)
-        x = self.transformer_encoder(embeddings)  # .shape = S, N, E
+        # x (N, num_decoded_ch, 240, 320)
+        embeddings = self.embedding_convPxP(x)  # (N, embedding_dim, 240/patch_size, 320/patch_size)
+        embeddings = embeddings.flatten(2) # (N, embedding_dim, n_patches) 
+        embeddings += self.pos_enc # (N, embedding_dim, n_patches)
+        # change to (n_patches, N, embedding_dim) format required by transformer
+        embeddings = embeddings.permute(2, 0, 1)  # (n_patches, N, embedding_dim)
+        x = self.transformer_encoder(embeddings)  # (n_patches, N, embedding_dim)
         return x
 
 
@@ -58,153 +58,167 @@ class PixelWiseDotProduct(nn.Module):
         super(PixelWiseDotProduct, self).__init__()
 
     def forward(self, x, K):
-        n, c, h, w = x.size()
-        _, cout, ck = K.size()
-        assert c == ck, "Number of channels in x and Embedding dimension (at dim 2) of K matrix must match"
-        y = torch.matmul(x.view(n, c, h * w).permute(0, 2, 1), K.permute(0, 2, 1))  # .shape = n, hw, cout
-        return y.permute(0, 2, 1).view(n, cout, h, w)
+        N, C, H, W = x.size()
+        _, Cout, Ck = K.size()
+        assert C == Ck, "Number of channels in x and Embedding dimension (at dim 2) of K matrix must match"
+        out = x.view(N, C, H * W).permute(0, 2, 1) @ K.permute(0, 2, 1)  # (N, H*W, Cout)
+        return out.permute(0, 2, 1).view(N, Cout, H, W)
 
 class mViT(nn.Module):
-    def __init__(self, in_channels, n_query_channels=128, patch_size=16, dim_out=256,
+    def __init__(self, num_decoded_ch, n_query_channels=128, patch_size=16, dim_out=100,
                  embedding_dim=128, num_heads=4, norm='linear'):
         super(mViT, self).__init__()
         self.norm = norm
         self.n_query_channels = n_query_channels
-        self.patch_transformer = PatchTransformerEncoder(in_channels, patch_size, embedding_dim, num_heads)
+        self.patch_transformer = PatchTransformerEncoder(num_decoded_ch, patch_size, embedding_dim, num_heads)
         self.dot_product_layer = PixelWiseDotProduct()
 
-        self.conv3x3 = nn.Conv2d(in_channels, embedding_dim, kernel_size=3, stride=1, padding=1)
-        self.regressor = nn.Sequential(nn.Linear(embedding_dim, 256),
+        self.conv3x3 = nn.Conv2d(num_decoded_ch, embedding_dim, kernel_size=3, stride=1, padding=1)
+        self.MLP = nn.Sequential(nn.Linear(embedding_dim, 256),
                                        nn.LeakyReLU(),
                                        nn.Linear(256, 256),
                                        nn.LeakyReLU(),
                                        nn.Linear(256, dim_out))
 
     def forward(self, x):
-        # n, c, h, w = x.size()
-        tgt = self.patch_transformer(x.clone())  # .shape = S, N, E
+        # x (N, num_decoded_ch, 240, 320)
+        tgt = self.patch_transformer(x.clone())  # (n_patches, N, num_decoded_ch)
 
-        x = self.conv3x3(x)
+        x = self.conv3x3(x) # (N, num_decoded_ch, 240, 320)
 
-        regression_head, queries = tgt[0, ...], tgt[1:self.n_query_channels + 1, ...]
-
-        # Change from S, N, E to N, S, E
+        head, queries = tgt[0, :], tgt[1:self.n_query_channels + 1, :]
+        # regression_head (N, num_decoded_ch)
+        # queries (n_query_channels, N, num_decoded_ch)
+        # discard rest of transformer output
+        
+        # (n_query_channels, N, num_decoded_ch) --> (N, n_query_channels, num_decoded_ch)
         queries = queries.permute(1, 0, 2)
-        range_attention_maps = self.dot_product_layer(x, queries)  # .shape = n, n_query_channels, h, w
+        range_attention_maps = self.dot_product_layer(x, queries)  # (N, n_query_channels, 240, 320)
 
-        y = self.regressor(regression_head)  # .shape = N, dim_out
+        bin_widths = self.MLP(head)  # (N, n_bins)
         if self.norm == 'linear':
-            y = torch.relu(y)
+            bin_widths = torch.relu(bin_widths)
             eps = 0.1
-            y = y + eps
+            bin_widths = bin_widths + eps
         elif self.norm == 'softmax':
-            return torch.softmax(y, dim=1), range_attention_maps
+            return torch.softmax(bin_widths, dim=1), range_attention_maps
         else:
-            y = torch.sigmoid(y)
-        y = y / y.sum(dim=1, keepdim=True)
-        return y, range_attention_maps
+            bin_widths = torch.sigmoid(bin_widths)
+        bin_widths_normed = bin_widths / bin_widths.sum(dim=1, keepdim=True)
+        return bin_widths_normed, range_attention_maps
 
-class UpSampleBN(nn.Module):
-    def __init__(self, skip_input, output_features):
-        super(UpSampleBN, self).__init__()
+class UpSample(nn.Module):
+    def __init__(self, input_ch, output_ch):
+        super(UpSample, self).__init__()
 
-        self._net = nn.Sequential(nn.Conv2d(skip_input, output_features, kernel_size=3, stride=1, padding=1),
-                                  nn.BatchNorm2d(output_features),
+        self._net = nn.Sequential(nn.Conv2d(input_ch, output_ch, kernel_size=3, padding=1),
+                                  nn.BatchNorm2d(output_ch),
                                   nn.LeakyReLU(),
-                                  nn.Conv2d(output_features, output_features, kernel_size=3, stride=1, padding=1),
-                                  nn.BatchNorm2d(output_features),
-                                  nn.LeakyReLU())
+                                  nn.Conv2d(output_ch, output_ch, kernel_size=3, padding=1),
+                                  nn.BatchNorm2d(output_ch),
+                                  nn.LeakyReLU(),
+                                  )
 
-    def forward(self, x, concat_with):
-        up_x = F.interpolate(x, size=[concat_with.size(2), concat_with.size(3)], mode='bilinear', align_corners=True)
-        f = torch.cat([up_x, concat_with], dim=1)
+    def forward(self, x, concat_block):
+        up_x = F.interpolate(x, size=[concat_block.size(2), concat_block.size(3)], mode='bilinear', align_corners=True)
+        f = torch.cat([up_x, concat_block], dim=1)
         return self._net(f)
 
 
-class DecoderBN(nn.Module):
-    def __init__(self, num_features=2048, num_classes=1, bottleneck_features=2048):
-        super(DecoderBN, self).__init__()
-        features = int(num_features)
+class Decoder(nn.Module):
+    def __init__(self, ch=2048, num_decoded_ch=128):
+        super(Decoder, self).__init__()
 
-        self.conv2 = nn.Conv2d(bottleneck_features, features, kernel_size=1, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(ch, ch, kernel_size=1, padding=1)
 
-        self.up1 = UpSampleBN(skip_input=features // 1 + 112 + 64, output_features=features // 2)
-        self.up2 = UpSampleBN(skip_input=features // 2 + 40 + 24, output_features=features // 4)
-        self.up3 = UpSampleBN(skip_input=features // 4 + 24 + 16, output_features=features // 8)
-        self.up4 = UpSampleBN(skip_input=features // 8 + 16 + 8, output_features=features // 16)
+        self.up1 = UpSample(input_ch=int(ch / 1 + 112 + 64), output_ch=int(ch / 2))
+        self.up2 = UpSample(input_ch=int(ch / 2 + 40 + 24), output_ch=int(ch / 4))
+        self.up3 = UpSample(input_ch=int(ch / 4 + 24 + 16), output_ch=int(ch / 8))
+        self.up4 = UpSample(input_ch=int(ch / 8 + 16 + 8), output_ch=int(ch / 16))
 
-        #         self.up5 = UpSample(skip_input=features // 16 + 3, output_features=features//16)
-        self.conv3 = nn.Conv2d(features // 16, num_classes, kernel_size=3, stride=1, padding=1)
-        # self.act_out = nn.Softmax(dim=1) if output_activation == 'softmax' else nn.Identity()
-
+        self.conv3 = nn.Conv2d(int(ch / 16), num_decoded_ch, kernel_size=3, padding=1)
+        
     def forward(self, features):
-        x_block0, x_block1, x_block2, x_block3, x_block4 = features[4], features[5], features[6], features[8], features[
-            11]
-
+        #x (2,3,480,640)
+        #x_block0 (2,24,240,320)
+        #x_block1 (2,40,120,160)
+        #x_block2 (2,64,60,80)
+        #x_block3 (2,176,30,40)
+        #x_block4 (2,2048,15,20)
+        x_block0, x_block1, x_block2, x_block3, x_block4 = \
+            features[4], features[5], features[6], features[8], features[11]
+        
+        #(2,2048,17,22)
         x_d0 = self.conv2(x_block4)
-
+        #(2,1024,30,40)
         x_d1 = self.up1(x_d0, x_block3)
+        #(2,512,60,80)
         x_d2 = self.up2(x_d1, x_block2)
+        #(2,256,120,160)
         x_d3 = self.up3(x_d2, x_block1)
+        #(2,128,240,320)
         x_d4 = self.up4(x_d3, x_block0)
-        #         x_d5 = self.up5(x_d4, features[0])
+        
+        #(2,128,240,320)
         out = self.conv3(x_d4)
-        # out = self.act_out(out)
-        # if with_features:
-        #     return out, features[-1]
-        # elif with_intermediate:
-        #     return out, [x_block0, x_block1, x_block2, x_block3, x_block4, x_d1, x_d2, x_d3, x_d4]
         return out
 
 
+
 class Encoder(nn.Module):
-    def __init__(self, backend):
+    # extract the skip-layer outputs
+    def __init__(self, encoder_model):
         super(Encoder, self).__init__()
-        self.original_model = backend
+        self.encoder_model = encoder_model
 
     def forward(self, x):
         features = [x]
-        for k, v in self.original_model._modules.items():
-            if (k == 'blocks'):
-                for ki, vi in v._modules.items():
-                    features.append(vi(features[-1]))
+        for key, value in self.encoder_model._modules.items():
+            if (key == 'blocks'):
+                for keyb, valueb in value._modules.items():
+                    features.append(valueb(features[-1]))
             else:
-                features.append(v(features[-1]))
+                features.append(value(features[-1]))
         return features
 
 class UnetAdaptiveBins(nn.Module):
-    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm='linear'):
+    def __init__(self, encoder_model, num_decoded_ch=128, n_bins=100, 
+                 min_val=0.1, max_val=10, norm='linear'):
         super(UnetAdaptiveBins, self).__init__()
-        self.num_classes = n_bins
         self.min_val = min_val
         self.max_val = max_val
-        self.encoder = Encoder(backend)
-        self.adaptive_bins_layer = mViT(128, n_query_channels=128, patch_size=16,
-                                        dim_out=n_bins,
-                                        embedding_dim=128, norm=norm)
+        self.encoder = Encoder(encoder_model)
+        self.decoder = Decoder(num_decoded_ch=num_decoded_ch)
+        self.adaptive_bins_layer = mViT(num_decoded_ch=num_decoded_ch, n_query_channels=128, 
+                                        patch_size=16, dim_out=n_bins, embedding_dim=num_decoded_ch,
+                                        norm=norm)
 
-        self.decoder = DecoderBN(num_classes=128)
-        self.conv_out = nn.Sequential(nn.Conv2d(128, n_bins, kernel_size=1, stride=1, padding=0),
-                                      nn.Softmax(dim=1))
+        
+        self.conv_out = nn.Sequential(nn.Conv2d(num_decoded_ch, n_bins, kernel_size=1, stride=1, padding=0),
+                                      nn.Softmax(dim=1),
+                                      )
 
     def forward(self, x, **kwargs):
-        unet_out = self.decoder(self.encoder(x), **kwargs)
-        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
-        out = self.conv_out(range_attention_maps)
+        decoded_features = self.decoder(self.encoder(x), **kwargs) # (N, num_decoded_ch, 240, 320)
+        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(decoded_features)
+        # bin_widths_normed (2, n_bins), range_attention_maps (N, num_decoded_ch, 240, 320)
+        range_bins_maps = self.conv_out(range_attention_maps) # (N, n_bins, 240, 320)
 
         # Post process
-        # n, c, h, w = out.shape
-        # hist = torch.sum(out.view(n, c, h * w), dim=2) / (h * w)  # not used for training
+        # N, n_bins, H, W = range_bins_maps.shape
+        # hist = torch.sum(range_bins_maps.view(N, n_bins, H * W), dim=2) / (H * W)  # not used for training
+        
+        # map the bin intervals
+        bin_widths = (self.max_val - self.min_val) * bin_widths_normed  # (N, n_bins)
+        # add the min depth value to the front
+        bin_widths = nn.functional.pad(bin_widths, (1, 0), value=self.min_val) # (N, n_bins + 1)
+        bin_edges = torch.cumsum(bin_widths, dim=1) # (N, n_bins + 1)
+        # compute the width by taking the average of two adjacent bin widths
+        centers = 0.5 * (bin_edges[:, :-1] + bin_edges[:, 1:]) # (N, n_bins)
+        N, n_bins = centers.size()
+        centers = centers.view(N, n_bins, 1, 1) # (N, n_bins, 1, 1)
 
-        bin_widths = (self.max_val - self.min_val) * bin_widths_normed  # .shape = N, dim_out
-        bin_widths = nn.functional.pad(bin_widths, (1, 0), mode='constant', value=self.min_val)
-        bin_edges = torch.cumsum(bin_widths, dim=1)
-
-        centers = 0.5 * (bin_edges[:, :-1] + bin_edges[:, 1:])
-        n, dout = centers.size()
-        centers = centers.view(n, dout, 1, 1)
-
-        pred = torch.sum(out * centers, dim=1, keepdim=True)
+        pred = torch.sum(range_bins_maps * centers, dim=1, keepdim=True) # (N, 1, 240, 320)
 
         return bin_edges, pred
 
