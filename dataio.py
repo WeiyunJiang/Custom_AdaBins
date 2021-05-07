@@ -96,7 +96,7 @@ class Depth_Dataset(Dataset):
         else:
             raise NotImplementedError('Not implemented for data_name={data_name}')
 
-        image = self.transform_depth(image)
+        image = self.transform_image(image)
         depth_gt = self.transform_depth(depth_gt)
         sample = {'image': image, 'depth': depth_gt}
         
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     from models import VGG_16
     
     train_dataset = Depth_Dataset('nyu', 'train', small_data_num=100)
-    train_dataset[0]
+    print(train_dataset[0])
     # train and val
     train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [90, 10])
     # test
@@ -120,10 +120,10 @@ if __name__ == '__main__':
     output_size = (320, 240)
     for i, batch in enumerate(test_data_loader):
         print(i)
-        print(batch['image'].shape)
-        print(batch['depth'].shape)
+        print(batch['image'].shape) # 1, 3, 427, 565
+        print(batch['depth'].shape) # 1, 1, 427, 565
         image = batch['image']
-        model = VGG_16(output_size=output_size)
+        model = VGG_16(output_size=output_size) 
         out = model(image)
-        print(out.shape)
+        print(out.shape) # 1, 320, 240
     pass

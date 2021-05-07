@@ -7,6 +7,7 @@ Created on Wed Apr 28 17:02:59 2021
 """
 import torch 
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision.models import vgg16_bn
 
 class VGG_16(nn.Module):
@@ -20,9 +21,12 @@ class VGG_16(nn.Module):
         self.vgg = vgg16_bn(pretrained=True)
         self.vgg.classifier._modules['6'] = nn.Linear(4096, output_size[0]*output_size[1])
         self.transform = torch.nn.functional.interpolate
+
         
     def forward(self, image):
         image = self.transform(image, mode='bilinear', size=(224, 224), align_corners=False)
         out = self.vgg(image)
+        out = F.relu(out)
+        out += 1e-3
         out = out.view(-1, *self.output_size)
         return out
