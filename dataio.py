@@ -96,8 +96,8 @@ class Depth_Dataset(Dataset):
         else:
             raise NotImplementedError('Not implemented for data_name={data_name}')
 
-        image = self.transform_image(image)
-        depth_gt = self.transform_depth(depth_gt)
+        image = self.transform_image(image.copy())
+        depth_gt = self.transform_depth(depth_gt.copy())
         sample = {'image': image, 'depth': depth_gt}
         
         return sample
