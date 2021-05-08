@@ -88,8 +88,8 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 optimizer.zero_grad()
                 
                 image, depth = batch['image'], batch['depth']
-                image.to(device)
-                depth.to(device)
+                image = image.to(device)
+                depth = depth.to(device)
                 
                 bins, pred = model(image)
 
@@ -100,7 +100,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 
                 loss = loss_depth + args.w_chamfer * loss_bin
                 loss.backward()
-                epoch_train_losses.append(loss)
+                epoch_train_losses.append(loss.clone().detach().cpu().numpy())
                 clip_grad_norm_(model.parameters(), 0.1)  # optional
                 optimizer.step()
                 
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         torch.cuda.set_device(device)
     else:
         device = torch.device('cpu')
-        
+    print(device)    
     model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
                                            max_val=args.max_depth, norm=args.norm)
     '''
