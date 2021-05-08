@@ -32,7 +32,7 @@ class VGG_16(nn.Module):
         return out
 
 class PatchTransformerEncoder(nn.Module):
-    def __init__(self, in_channels, patch_size=16, embedding_dim=128, num_heads=4):
+    def __init__(self, in_channels, patch_size=8, embedding_dim=128, num_heads=4):
         super(PatchTransformerEncoder, self).__init__()
         encoder_layers = nn.TransformerEncoderLayer(embedding_dim, num_heads, dim_feedforward=1024)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers=4)  
@@ -65,7 +65,7 @@ class PixelWiseDotProduct(nn.Module):
         return out.permute(0, 2, 1).view(N, Cout, H, W)
 
 class mViT(nn.Module):
-    def __init__(self, num_decoded_ch, n_query_channels=128, patch_size=16, dim_out=100,
+    def __init__(self, num_decoded_ch, n_query_channels=128, patch_size=8, dim_out=100,
                  embedding_dim=128, num_heads=4, norm='linear'):
         super(mViT, self).__init__()
         self.norm = norm
@@ -190,7 +190,7 @@ class UnetAdaptiveBins(nn.Module):
         self.encoder = Encoder(encoder_model)
         self.decoder = Decoder(num_decoded_ch=num_decoded_ch)
         self.adaptive_bins_layer = mViT(num_decoded_ch=num_decoded_ch, n_query_channels=128, 
-                                        patch_size=16, dim_out=n_bins, embedding_dim=num_decoded_ch,
+                                        patch_size=8, dim_out=n_bins, embedding_dim=num_decoded_ch,
                                         norm=norm)
 
         
@@ -251,6 +251,6 @@ class UnetAdaptiveBins(nn.Module):
     
 if __name__ == '__main__':
     model = UnetAdaptiveBins.build_encoder(n_bins=80)
-    x = torch.rand(2, 3, 480, 640)
+    x = torch.rand(2, 3, 240, 320)
     bins, pred = model(x)
     print(bins.shape, pred.shape)
