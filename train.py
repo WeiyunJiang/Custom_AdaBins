@@ -38,10 +38,12 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     writer = SummaryWriter(summaries_dir)
     
     # initialize dataset
-    train_dataset = Depth_Dataset(args.dataset, 'train', small_data_num = 100) 
+    train_dataset = Depth_Dataset(args.dataset, 'train', small_data_num = args.small_data_num)
+    num_train = int(0.9 * len(train_dataset))
+    num_val = len(train_dataset) - num_train
     train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, 
-                                                               [int(0.9 * len(train_dataset)), 
-                                                                int(0.1 * len(train_dataset))])
+                                                               [num_train, 
+                                                                num_val])
    	
     train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_data_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)

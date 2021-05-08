@@ -22,7 +22,9 @@ class Depth_Dataset(Dataset):
     small_data_num: number of data samples used
     
     """
-    def __init__(self, data_name, split, small_data_num=None):
+    def __init__(self, data_name, split, resolution=(240, 320), downsample=True, small_data_num=None):
+        self.downsample = downsample
+        self.resolution = resolution
         if data_name == 'nyu':
             if split == 'train':
                 with open("./train_test_inputs/official_nyudepthv2_train_files_with_gt.txt", 'r') as f:
@@ -71,7 +73,11 @@ class Depth_Dataset(Dataset):
 
         image = Image.open(image_path)
         depth_gt = Image.open(depth_path)
-        
+        if self.downsample:
+            image = image.resize(self.resolution)
+            depth_gt = depth_gt.resize(self.resolution)
+            
+        '''
         if self.do_kb_crop == True:
             height = image.height
             width = image.width
@@ -79,7 +85,7 @@ class Depth_Dataset(Dataset):
             left_margin = int((width - 1216) / 2)
             depth_gt = depth_gt.crop((left_margin, top_margin, left_margin + 1216, top_margin + 352))
             image = image.crop((left_margin, top_margin, left_margin + 1216, top_margin + 352))
-        
+        '''
         # To avoid blank boundaries due to pixel registration
         # if self.data_name == 'nyu':
         #     depth_gt = depth_gt.crop((43, 45, 608, 472))

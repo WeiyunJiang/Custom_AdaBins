@@ -39,7 +39,7 @@ class PatchTransformerEncoder(nn.Module):
 
         self.embedding_convPxP = nn.Conv2d(in_channels, embedding_dim,
                                            kernel_size=patch_size, stride=patch_size, padding=0)
-        n_patches = int((320 // patch_size) * (240 // patch_size))
+        n_patches = int((160 // patch_size) * (120 // patch_size))
         self.pos_enc = nn.Parameter(torch.rand((1, embedding_dim, n_patches)))
 
     def forward(self, x):
