@@ -7,7 +7,7 @@ def depth_arg():
     parser.add_argument('--exp_name', type=str, default='baseline', help='experiment name')
     parser.add_argument('--steps_til_summary', default=1, type=int, help='steps to print loss')
     parser.add_argument('--epochs_til_checkpoint', default=1, type=int, help='steps to save pt')
-    parser.add_argument('--small_data_num', default=100, type=int, help='use small portion of dataset')
+    parser.add_argument('--small_data_num', default=None, type=int, help='use small portion of dataset')
     parser.add_argument('--seed', default=42, type=int, help='random seed')
     parser.add_argument('--epochs', default=25, type=int, help='number of total epochs to run')
     parser.add_argument('--n-bins', '--n_bins', default=80, type=int,
