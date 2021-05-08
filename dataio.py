@@ -25,9 +25,9 @@ class Depth_Dataset(Dataset):
     def __init__(self, data_name, split, small_data_num=None):
         if data_name == 'nyu':
             if split == 'train':
-                with open("./train_test_inputs/nyudepthv2_train_files_with_gt.txt", 'r') as f:
+                with open("./train_test_inputs/official_nyudepthv2_train_files_with_gt.txt", 'r') as f:
                     self.filenames = f.readlines()
-                    self.data_pth = './dataset/nyu_depth_v2/sync'
+                    self.data_pth = './dataset/nyu_depth_v2/official_splits/'
             elif split == 'test':
                 with open("./train_test_inputs/nyudepthv2_test_files_with_gt.txt", 'r') as f:
                     self.filenames = f.readlines()
@@ -81,9 +81,9 @@ class Depth_Dataset(Dataset):
             image = image.crop((left_margin, top_margin, left_margin + 1216, top_margin + 352))
         
         # To avoid blank boundaries due to pixel registration
-        if self.data_name == 'nyu':
-            depth_gt = depth_gt.crop((43, 45, 608, 472))
-            image = image.crop((43, 45, 608, 472))
+        # if self.data_name == 'nyu':
+        #     depth_gt = depth_gt.crop((43, 45, 608, 472))
+        #     image = image.crop((43, 45, 608, 472))
         
         image = np.asarray(image, dtype=np.uint8) 
         depth_gt = np.asarray(depth_gt, dtype=np.float32)
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     
     output_size = (320, 240)
-    for i, batch in enumerate(test_data_loader):
+    for i, batch in enumerate(train_data_loader):
         print(i)
         print(batch['image'].shape) # 1, 3, 427, 565
         print(batch['depth'].shape) # 1, 1, 427, 565

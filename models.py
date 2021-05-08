@@ -39,7 +39,7 @@ class PatchTransformerEncoder(nn.Module):
 
         self.embedding_convPxP = nn.Conv2d(in_channels, embedding_dim,
                                            kernel_size=patch_size, stride=patch_size, padding=0)
-        n_patches = int((283 // patch_size) * (214 // patch_size))
+        n_patches = int((320 // patch_size) * (240 // patch_size))
         self.pos_enc = nn.Parameter(torch.rand((1, embedding_dim, n_patches)))
 
     def forward(self, x):
@@ -251,6 +251,6 @@ class UnetAdaptiveBins(nn.Module):
     
 if __name__ == '__main__':
     model = UnetAdaptiveBins.build_encoder(n_bins=80)
-    x = torch.rand(2, 3, 427, 565)
+    x = torch.rand(2, 3, 480, 640)
     bins, pred = model(x)
     print(bins.shape, pred.shape)
