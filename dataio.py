@@ -102,6 +102,21 @@ class Depth_Dataset(Dataset):
         
         return sample
 
+def rescale_img(x, mode='scale', perc=None, tmax=1.0, tmin=0.0):
+    if (mode == 'scale'):
+        if perc is None:
+            xmax = torch.max(x)
+            xmin = torch.min(x)
+        else:
+            xmin = np.percentile(x.detach().cpu().numpy(), perc)
+            xmax = np.percentile(x.detach().cpu().numpy(), 100 - perc)
+            x = torch.clamp(x, xmin, xmax)
+        if xmin == xmax:
+            return 0.5 * torch.ones_like(x) * (tmax - tmin) + tmin
+        x = ((x - xmin) / (xmax - xmin)) * (tmax - tmin) + tmin
+    elif (mode == 'clamp'):
+        x = torch.clamp(x, 0, 1)
+    return x
 
 if __name__ == '__main__':
     from models import VGG_16

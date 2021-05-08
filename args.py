@@ -3,7 +3,10 @@ import argparse
 def depth_arg():
 
     parser = argparse.ArgumentParser('Train a model')
+    parser.add_argument('--logging_root', type=str, default='./logs_507', help='root for logging')
+    parser.add_argument('--exp_name', type=str, default='baseline', help='experiment name')
     parser.add_argument('--steps_til_summary', default=25, type=int, help='steps to print loss')
+    parser.add_argument('--epochs_til_checkpoint', default=1, type=int, help='steps to save pt')
     parser.add_argument('--small_data_num', default=100, type=int, help='use small portion of dataset')
     parser.add_argument('--seed', default=42, type=int, help='random seed')
     parser.add_argument('--epochs', default=25, type=int, help='number of total epochs to run')
@@ -16,7 +19,7 @@ def depth_arg():
     parser.add_argument('--final-div-factor', '--final_div_factor', default=100, type=float,
                         help="final div factor for lr")
 
-    parser.add_argument('--batch_size', default=16, type=int, help='batch size')
+    parser.add_argument('--batch_size', default=1, type=int, help='batch size') # 16
     parser.add_argument('--validate-every', '--validate_every', default=100, type=int, help='validation period')
     parser.add_argument('--gpu', default=None, type=int, help='Which gpu to use')
     parser.add_argument("--name", default="UnetAdaptiveBins")

@@ -5,7 +5,10 @@ import torch.optim as optim
 import torch.utils.data.distributed
 import random
 import time
-
+from torch.utils.tensorboard import SummaryWriter
+import os
+import shutil
+import utils
 
 from tqdm import tqdm
 
@@ -18,7 +21,22 @@ from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 
 
-def train_model(model, args, device=None):
+def train_model(model, model_dir, args, summary_fn=None, device=None):
+    if os.path.exists(model_dir):
+        val = input("The model directory %s exists. Overwrite? (y/n)"%model_dir)
+        if val == 'y':
+            shutil.rmtree(model_dir)
+
+    os.makedirs(model_dir)
+
+    summaries_dir = os.path.join(model_dir, 'summaries')
+    utils.cond_mkdir(summaries_dir)
+
+    checkpoints_dir = os.path.join(model_dir, 'checkpoints')
+    utils.cond_mkdir(checkpoints_dir)
+
+    writer = SummaryWriter(summaries_dir)
+    
     # initialize dataset
     train_dataset = Depth_Dataset(args.dataset, 'train', small_data_num = 100) 
     train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, 
@@ -56,7 +74,12 @@ def train_model(model, args, device=None):
         for epoch in range(args.epochs):
             print("Epoch {}/{}".format(epoch, args.epochs))
             print('-' * 10)
- 
+            epoch_train_losses = []
+            
+            if not (epoch+1) % args.epochs_til_checkpoint and epoch:
+                torch.save(model.state_dict(),
+                           os.path.join(checkpoints_dir, 'model_epoch_%04d.pth' % epoch))
+                
             for step, batch in enumerate(train_data_loader):
                 start_time = time.time()
                 
@@ -77,6 +100,7 @@ def train_model(model, args, device=None):
                 
                 loss = loss_depth + args.w_chamfer * loss_bin
                 loss.backward()
+                epoch_train_losses.append(loss)
                 clip_grad_norm_(model.parameters(), 0.1)  # optional
                 optimizer.step()
                 
@@ -88,10 +112,15 @@ def train_model(model, args, device=None):
                 if not (total_steps+1) % args.steps_til_summary:
                     tqdm.write("Epoch [%d/%d], Step [%d/%d], Loss: %.4f, iteration time %0.6f sec" 
                     % (epoch, args.epochs, step, len(train_data_loader), loss, time.time() - start_time))
+                    
+                    torch.save(model.state_dict(),
+                               os.path.join(checkpoints_dir, 'model_current.pth'))
+                    writer.add_scalar("step_train_loss", loss, total_steps)
+                    # summary_fn(depth, pred, image, writer, total_steps)
                         
                 total_steps += 1
                 
-               
+            writer.add_scalar("epoch_train_loss", np.mean(epoch_train_losses), epoch)
 
 
 if __name__ == '__main__': 
@@ -103,6 +132,9 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
+    
+    root_path = os.path.join(args.logging_root, args.exp_name)
+    
     
     gpu_ids = []
     if torch.cuda.is_available():
@@ -123,7 +155,7 @@ if __name__ == '__main__':
     args.epoch = 0 
     args.last_epoch = -1
     
-    train_model(model, args, device)
+    train_model(model, root_path, args, summary_fn=None, device=device)
 
 
 

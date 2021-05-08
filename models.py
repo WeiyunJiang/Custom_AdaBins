@@ -220,7 +220,7 @@ class UnetAdaptiveBins(nn.Module):
 
         pred = torch.sum(range_bins_maps * centers, dim=1, keepdim=True) # (N, 1, 240, 320)
 
-        return bin_edges, pred
+        return centers.view(N, n_bins, 1), pred
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()
