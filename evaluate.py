@@ -74,7 +74,7 @@ def compute_errors(ground_truth, pred):
                 silog=silog, sq_rel=sq_rel)
 
 
-def eval(args, model, pred, gt, metrics):
+def evaluate(pred, gt, metrics):
     
     evaluation = compute_errors(gt, pred)
     metrics.update(evaluation)

@@ -19,7 +19,7 @@ from loss import SILogLoss, BinsChamferLoss
 from args import depth_arg
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
-
+from evaluate import *
 
 def train_model(model, model_dir, args, summary_fn=None, device=None):
     if os.path.exists(model_dir):
@@ -71,6 +71,8 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                                               final_div_factor=args.final_div_factor)
 
     total_steps = 0
+    metrics = RunningAverageDict()
+    
     
     with tqdm(total=len(train_data_loader) * args.epochs) as pbar:
         for epoch in range(args.epochs):
@@ -102,10 +104,14 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 
                 loss = loss_depth + args.w_chamfer * loss_bin
                 loss.backward()
+                
                 epoch_train_losses.append(loss.clone().detach().cpu().numpy())
+                
                 clip_grad_norm_(model.parameters(), 0.1)  # optional
                 optimizer.step()
                 
+                with torch.no_grad():
+                    evaluate(pred, depth, metrics)
                 
                 scheduler.step()
                 
@@ -117,7 +123,15 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     
                     torch.save(model.state_dict(),
                                os.path.join(checkpoints_dir, 'model_current.pth'))
+                    
                     writer.add_scalar("step_train_loss", loss, total_steps)
+                    writer.add_scalar("step_train_silog_loss", metrics['silog'], total_steps)
+                    writer.add_scalar("step_a1", metrics['a1'], total_steps)
+                    writer.add_scalar("step_a2", metrics['a2'], total_steps)
+                    writer.add_scalar("step_a3", metrics['a3'], total_steps)
+                    writer.add_scalar("step_rel", metrics['abs_rel'], total_steps)
+                    writer.add_scalar("step_rms", metrics['rmse'], total_steps)
+                    writer.add_scalar("step_log10", metrics['log_10'], total_steps)
                     # summary_fn(depth, pred, image, writer, total_steps)
                         
                 total_steps += 1
