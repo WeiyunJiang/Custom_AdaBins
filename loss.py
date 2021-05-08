@@ -10,7 +10,7 @@ class SILogLoss(nn.Module):  # Main loss function used in AdaBins paper
         super(SILogLoss, self).__init__()
 
 
-    def forward(self, input, target, mask=None, interpolate=False):
+    def forward(self, input, target, mask=None, interpolate=True):
         if interpolate:
             input = nn.functional.interpolate(input, target.shape[-2:], mode='bilinear', align_corners=True)
 
