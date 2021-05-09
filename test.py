@@ -23,24 +23,25 @@ from evaluate import *
 
 
 def test(model, test_data_loader):
-    metrics_test = RunningAverageDict()
-    model.eval()
+    with torch.no_grad():
+        metrics_test = RunningAverageDict()
+        model.eval()
         
-    for step, batch in tqdm(enumerate(test_data_loader)):  
-        # image(N, 3, 427, 565)
-        # depth(N, 1, 427, 565)
-        image, depth = batch['image'], batch['depth']
-        image = image.to(device)
-        depth = depth.to(device)
+        for step, batch in tqdm(enumerate(test_data_loader)):  
+            # image(N, 3, 427, 565)
+            # depth(N, 1, 427, 565)
+            image, depth = batch['image'], batch['depth']
+            image = image.to(device)
+            depth = depth.to(device)
         
-        bins, pred = model(image)
-        evaluate(pred, depth, metrics_test, args)
+            bins, pred = model(image)
+            evaluate(pred, depth, metrics_test, args)
         
-    metrics_test_value = metrics_val.get_value()
-    tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
-                   % (metrics_val_value['silog'], metrics_val_value['a1'], metrics_val_value['a2'],
-                      metrics_val_value['a3'],metrics_val_value['abs_rel'],metrics_val_value['rmse'],
-                      metrics_val_value['log_10']))
+        metrics_test_value = metrics_test.get_value()
+        tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
+                % (metrics_test_value['silog'], metrics_test_value['a1'], metrics_test_value['a2'],
+                   metrics_test_value['a3'],metrics_test_value['abs_rel'],metrics_test_value['rmse'],
+                   metrics_test_value['log_10']))
 
 
 if __name__ == '__main__': 
