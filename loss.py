@@ -5,6 +5,20 @@ from torch.nn.utils.rnn import pad_sequence
 # from pytorch3d.loss import chamfer_distance
 from chamferdist import ChamferDistance
 
+
+class MSELoss(nn.Module):
+    def __init__(self):
+        super(MSELoss, self).__init__()
+
+    def forward(self, pred, target, mask=None, interpolate=True):
+        if interpolate:
+            pred = nn.functional.interpolate(pred, target.shape[-2:], mode='bilinear', align_corners=True)
+
+        if mask is not None:
+            pred = pred[mask]
+            target = target[mask]
+        return ((pred - target) ** 2).mean()
+    
 class SILogLoss(nn.Module):  # Main loss function used in AdaBins paper
     def __init__(self):
         super(SILogLoss, self).__init__()
