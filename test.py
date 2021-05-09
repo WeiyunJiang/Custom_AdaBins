@@ -1,13 +1,9 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
 import torch.utils.data.distributed
 import random
-import time
-from torch.utils.tensorboard import SummaryWriter
 import os
-import shutil
+
 import utils
 
 from tqdm import tqdm
@@ -15,11 +11,11 @@ from tqdm import tqdm
 from models import VGG_16, UnetAdaptiveBins
 
 from dataio import Depth_Dataset
-from loss import SILogLoss, BinsChamferLoss
+
 from args import depth_arg
 from torch.utils.data import DataLoader
-from torch.nn.utils import clip_grad_norm_
-from evaluate import *
+
+from evaluate import evaluate_model, RunningAverageDict
 
 
 def test(model, test_data_loader):
@@ -35,7 +31,7 @@ def test(model, test_data_loader):
             depth = depth.to(device)
         
             bins, pred = model(image)
-            evaluate(pred, depth, metrics_test, args)
+            evaluate_model(pred, depth, metrics_test, args)
         
         metrics_test_value = metrics_test.get_value()
         tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
@@ -47,7 +43,6 @@ def test(model, test_data_loader):
 if __name__ == '__main__': 
     args = depth_arg()
     # Set random seed
-    print(f'Using random')
     print(f'Using random seed {args.seed}')
     random.seed(args.seed)
     np.random.seed(args.seed)

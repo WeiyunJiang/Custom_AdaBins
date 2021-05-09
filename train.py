@@ -19,7 +19,7 @@ from loss import SILogLoss, BinsChamferLoss
 from args import depth_arg
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
-from evaluate import *
+from evaluate import evaluate_model, RunningAverageDict
 
 def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args):
     with torch.no_grad():
@@ -43,7 +43,7 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
             depth = depth.to(device)
             
             bins, pred = model(image)
-            evaluate(pred, depth, metrics_val, args)
+            evaluate_model(pred, depth, metrics_val, args)
             
         metrics_val_value = metrics_val.get_value()
         writer.add_scalar("step_val_silog_loss", metrics_val_value['silog'], total_steps)
@@ -162,8 +162,14 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
 
                 
                 with torch.no_grad():
-                    evaluate(pred, depth, metrics, args)
+                    evaluate_model(pred, depth, metrics, args)
+                    depth_gt = depth[0] # (1, H, W)
+                    depth_gt[depth_gt < args.min_depth] = args.min_depth
+                    depth_gt[depth_gt > args.max_depth] = args.max_depth
                     
+                    colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    utils.write_image_summary('train_', colored_gt, colored_pred, image[0], writer, total_steps)
                 
                 scheduler.step()
                 
@@ -227,7 +233,11 @@ if __name__ == '__main__':
     model = VGG_16(output_size= output_size) 
     params = model.parameters()
     '''
+    
     model.to(device) 
+    total_n_params = utils.count_parameters(model)
+    print(f'Total number of parameters: {total_n_params}')
+    
     args.epoch = 0 
     args.last_epoch = -1
     

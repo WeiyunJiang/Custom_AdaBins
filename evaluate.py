@@ -76,7 +76,7 @@ def compute_errors(ground_truth, pred):
 
 
 
-def evaluate(pred, gt, metrics, args):
+def evaluate_model(pred, gt, metrics, args):
     pred = F.interpolate(pred, gt.shape[-2:], mode = 'bilinear', align_corners=True)
     gt = gt.squeeze().cpu().numpy()
     pred = pred.squeeze().cpu().numpy()
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     gt = torch.ones((2, 2, 20, 20))
     
     metrics = RunningAverageDict()
-    evaluate(pred, gt, metrics, args)
+    evaluate_model(pred, gt, metrics, args)
     metrics_value = metrics.get_value()
     pass
 
