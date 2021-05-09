@@ -22,7 +22,7 @@ class Depth_Dataset(Dataset):
     small_data_num: number of data samples used
     
     """
-    def __init__(self, data_name, split, resolution=(240, 320), downsample=True, small_data_num=None):
+    def __init__(self, data_name, split, resolution=(320, 240), downsample=True, small_data_num=None):
         self.downsample = downsample
         self.resolution = resolution
         if data_name == 'nyu':
@@ -73,6 +73,8 @@ class Depth_Dataset(Dataset):
 
         image = Image.open(image_path)
         depth_gt = Image.open(depth_path)
+        image = image.crop((43, 45, 608, 472))
+        depth_gt = depth_gt.crop((43, 45, 608, 472))
         if self.downsample:
             image = image.resize(self.resolution)
             depth_gt = depth_gt.resize(self.resolution)
@@ -143,6 +145,11 @@ if __name__ == '__main__':
         print(i)
         print(batch['image'].shape) # 1, 3, 427, 565
         print(batch['depth'].shape) # 1, 1, 427, 565
+        depth = batch['depth']
+        depth_rescaled = rescale_img(depth)
+        depth_rescaled = depth_rescaled.numpy()[0].transpose(1,2,0)
+        plt.imshow(depth_rescaled)
+        
         image = batch['image']
         model = VGG_16(output_size=output_size) 
         out = model(image)
