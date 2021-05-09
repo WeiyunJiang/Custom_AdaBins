@@ -1,5 +1,5 @@
 
-import argparse
+import args
 import os
 import sys
 
@@ -89,13 +89,15 @@ def evaluate(pred, gt, metrics, args):
 
 
 if __name__ == '__main__':
+    args = args.depth_arg()
     pred = torch.ones((2, 2, 10, 10))
     
     gt = torch.ones((2, 2, 20, 20))
     
     metrics = RunningAverageDict()
-    evaluate(pred, gt, metrics)
-
+    evaluate(pred, gt, metrics, args)
+    metrics_value = metrics.get_value()
+    pass
 
 
 
