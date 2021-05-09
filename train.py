@@ -21,6 +21,47 @@ from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 from evaluate import *
 
+def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args):
+    with torch.no_grad():
+        metrics_val = RunningAverageDict()
+        model.eval()
+        summaries_dir = os.path.join(model_dir, 'val_summaries')
+        utils.cond_mkdir(summaries_dir)
+    
+        checkpoints_dir = os.path.join(model_dir, 'checkpoints')
+        utils.cond_mkdir(checkpoints_dir)
+        
+        writer = SummaryWriter(summaries_dir)
+        for step, batch in enumerate(val_data_loader):  
+            # image(N, 3, 427, 565)
+            # depth(N, 1, 427, 565)
+            
+            
+            image, depth = batch['image'], batch['depth']
+            image = image.to(device)
+            depth = depth.to(device)
+            
+            bins, pred = model(image)
+            evaluate(pred, depth, metrics_val, args)
+            
+        metrics_val_value = metrics_val.get_value()
+        writer.add_scalar("step_val_silog_loss", metrics_val_value['silog'], total_steps)
+        writer.add_scalar("step_val_a1", metrics_val_value['a1'], total_steps)
+        writer.add_scalar("step_val_a2", metrics_val_value['a2'], total_steps)
+        writer.add_scalar("step_val_a3", metrics_val_value['a3'], total_steps)
+        writer.add_scalar("step_val_rel", metrics_val_value['abs_rel'], total_steps)
+        writer.add_scalar("step_val_rms", metrics_val_value['rmse'], total_steps)
+        writer.add_scalar("step_val_log10", metrics_val_value['log_10'], total_steps)
+        
+        if  metrics_val_value['abs_rel'] < best_val_abs_rel:
+            best_val_abs_rel = metrics_val_value['abs_rel']
+            torch.save(model.state_dict(),
+               os.path.join(checkpoints_dir, 'model_best_val.pth'))
+            np.savetxt(os.path.join(checkpoints_dir, 'best_psnr_epoch.txt'),
+                    np.array([best_val_abs_rel, epoch]))
+                
+    
+    
 def train_model(model, model_dir, args, summary_fn=None, device=None):
     if os.path.exists(model_dir):
         val = input("The model directory %s exists. Overwrite? (y/n)"%model_dir)
@@ -72,7 +113,8 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
 
     total_steps = 0
     metrics = RunningAverageDict()
-    
+    best_train_abs_rel = 100
+    best_val_abs_rel = 100
     
     with tqdm(total=len(train_data_loader) * args.epochs) as pbar:
         for epoch in range(args.epochs):
@@ -130,14 +172,13 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
 
                     metrics_value = metrics.get_value()
                     writer.add_scalar("step_train_loss", loss, total_steps)
-                    writer.add_scalar("step_train_silog_loss", loss_depth, total_steps)
                     writer.add_scalar("step_train_silog_loss", metrics_value['silog'], total_steps)
-                    writer.add_scalar("step_a1", metrics_value['a1'], total_steps)
-                    writer.add_scalar("step_a2", metrics_value['a2'], total_steps)
-                    writer.add_scalar("step_a3", metrics_value['a3'], total_steps)
-                    writer.add_scalar("step_rel", metrics_value['abs_rel'], total_steps)
-                    writer.add_scalar("step_rms", metrics_value['rmse'], total_steps)
-                    writer.add_scalar("step_log10", metrics_value['log_10'], total_steps)
+                    writer.add_scalar("step_train_a1", metrics_value['a1'], total_steps)
+                    writer.add_scalar("step_train_a2", metrics_value['a2'], total_steps)
+                    writer.add_scalar("step_train_a3", metrics_value['a3'], total_steps)
+                    writer.add_scalar("step_train_rel", metrics_value['abs_rel'], total_steps)
+                    writer.add_scalar("step_train_rms", metrics_value['rmse'], total_steps)
+                    writer.add_scalar("step_train_log10", metrics_value['log_10'], total_steps)
 
                     for param_group in optimizer.param_groups:
                         writer.add_scalar("epoch_train_lr", param_group['lr'], total_steps)
@@ -147,6 +188,9 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 
             writer.add_scalar("epoch_train_loss", np.mean(epoch_train_losses), epoch)
             writer.add_scalar("epoch_train_silog_loss", np.mean(epoch_train_silog_losses), epoch)
+            
+            ## validation
+            validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args)
 
 
 if __name__ == '__main__': 
