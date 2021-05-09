@@ -32,7 +32,8 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         utils.cond_mkdir(checkpoints_dir)
         
         writer = SummaryWriter(summaries_dir)
-        for step, batch in enumerate(val_data_loader):  
+        
+        for step, batch in tqdm(enumerate(val_data_loader)):  
             # image(N, 3, 427, 565)
             # depth(N, 1, 427, 565)
             
@@ -52,13 +53,18 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         writer.add_scalar("step_val_rel", metrics_val_value['abs_rel'], total_steps)
         writer.add_scalar("step_val_rms", metrics_val_value['rmse'], total_steps)
         writer.add_scalar("step_val_log10", metrics_val_value['log_10'], total_steps)
+
+        tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
+                   % (metrics_val_value['silog'], metrics_val_value['a1'], metrics_val_value['a2'],
+                      metrics_val_value['a3'],metrics_val_value['abs_rel'],metrics_val_value['rmse'],
+                      metrics_val_value['log_10']))
         
-        if  metrics_val_value['abs_rel'] < best_val_abs_rel:
+        if metrics_val_value['abs_rel'] < best_val_abs_rel:
             best_val_abs_rel = metrics_val_value['abs_rel']
             torch.save(model.state_dict(),
-               os.path.join(checkpoints_dir, 'model_best_val.pth'))
+                       os.path.join(checkpoints_dir, 'model_best_val.pth'))
             np.savetxt(os.path.join(checkpoints_dir, 'best_psnr_epoch.txt'),
-                    np.array([best_val_abs_rel, epoch]))
+                       np.array([best_val_abs_rel, epoch]))
                 
     
     
