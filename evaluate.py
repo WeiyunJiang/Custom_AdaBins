@@ -10,6 +10,8 @@ from PIL import Image
 from tqdm import tqdm
 
 
+import torch.nn.functional as F
+
 
 
 class RunningAverage:
@@ -42,19 +44,20 @@ class RunningAverageDict:
 
 def compute_errors(ground_truth, pred):
 
-    # threshold accuracy, the % of y_p such that max((y_p/y^_p), (y^_p/y_p)) < threshold 
-    a1 = np.mean(np.maximum((ground_truth / pred), (pred / ground_truth)) < 1.25)
-    a2 = np.mean(np.maximum((ground_truth / pred), (pred / ground_truth)) < 1.25 ** 2)
-    a3 = np.mean(np.maximum((ground_truth / pred), (pred / ground_truth)) < 1.25 ** 3)
+    # threshold accuracy, the % of y_p such that max((y_p/y^_p), (y^_p/y_p)) < threshold
+    ratio = np.maximum((ground_truth / pred), (pred / ground_truth))
+    a1 = (ratio < 1.25).mean()
+    a2 = (ratio < 1.25 ** 2).mean()
+    a3 = (ratio < 1.25 ** 3).mean()
 
     # average relative error
-    abs_rel = np.mean(np.abs(ground_truth - pred) / ground_truth)
+    abs_rel = (np.abs(ground_truth - pred) / ground_truth).mean()
     # square relative error
-    sq_rel = np.mean(((ground_truth - pred) ** 2) / ground_truth)
+    sq_rel = (((ground_truth - pred) ** 2) / ground_truth).mean()
 
     # root mean squared error
     rmse = (ground_truth - pred) ** 2
-    rmse = np.sqrt(np.mean(rmse))
+    rmse = np.sqrt((rmse).mean())
 
     # root mean squared log error
     rmse_log = (np.log(ground_truth) - np.log(pred)) ** 2
@@ -72,10 +75,26 @@ def compute_errors(ground_truth, pred):
                 silog=silog, sq_rel=sq_rel)
 
 
-def evaluate(pred, gt, metrics):
-    
-    evaluation = compute_errors(gt, pred)
+
+def evaluate(pred, gt, metrics, args):
+    pred = F.interpolate(pred, gt.shape[-2:], mode = 'bilinear', align_corners=True)
+    gt = gt.squeeze().cpu().numpy()
+    pred = pred.squeeze().cpu().numpy()
+    gt_valid_mask = np.logical_and(gt > args.min_depth, gt < args.max_depth)
+    pred[np.isinf(pred)] = args.max_depth
+    pred[np.isnan(pred)] = args.min_depth
+    evaluation = compute_errors(gt[gt_valid_mask], pred[gt_valid_mask])
     metrics.update(evaluation)
+
+
+
+if __name__ == '__main__':
+    pred = torch.ones((2, 2, 10, 10))
+    
+    gt = torch.ones((2, 2, 20, 20))
+    
+    metrics = RunningAverageDict()
+    evaluate(pred, gt, metrics)
 
 
 
