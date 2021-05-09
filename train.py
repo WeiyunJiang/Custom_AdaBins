@@ -55,7 +55,7 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
                     
         colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
         colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-        utils.write_image_summary('train_', colored_gt, colored_pred, image[0], writer, total_steps)
+        utils.write_image_summary('val_', colored_gt, colored_pred, image[0], writer, total_steps)
                     
         metrics_val_value = metrics_val.get_value()
         writer.add_scalar("step_val_silog_loss", metrics_val_value['silog'], total_steps)
