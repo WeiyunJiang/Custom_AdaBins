@@ -71,7 +71,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                                               final_div_factor=args.final_div_factor)
 
     total_steps = 0
-    #metrics = RunningAverageDict()
+    metrics = RunningAverageDict()
     
     
     with tqdm(total=len(train_data_loader) * args.epochs) as pbar:
@@ -112,10 +112,11 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 clip_grad_norm_(model.parameters(), 0.1)  # optional
                 optimizer.step()
 
-                '''
+                
                 with torch.no_grad():
-                    evaluate(pred, depth, metrics)
-                '''
+                    evaluate(pred, depth, metrics, args)
+                    
+                
                 scheduler.step()
                 
                 pbar.update(1)
@@ -126,16 +127,20 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     
                     torch.save(model.state_dict(),
                                os.path.join(checkpoints_dir, 'model_current.pth'))
-                    
+
+                    metrics_value = metrics.get_value()
                     writer.add_scalar("step_train_loss", loss, total_steps)
                     writer.add_scalar("step_train_silog_loss", loss_depth, total_steps)
-                    #writer.add_scalar("step_train_silog_loss", metrics['silog'], total_steps)
-                    #writer.add_scalar("step_a1", metrics['a1'], total_steps)
-                    #writer.add_scalar("step_a2", metrics['a2'], total_steps)
-                    #writer.add_scalar("step_a3", metrics['a3'], total_steps)
-                    #writer.add_scalar("step_rel", metrics['abs_rel'], total_steps)
-                    #writer.add_scalar("step_rms", metrics['rmse'], total_steps)
-                    #writer.add_scalar("step_log10", metrics['log_10'], total_steps)
+                    writer.add_scalar("step_train_silog_loss", metrics_value['silog'], total_steps)
+                    writer.add_scalar("step_a1", metrics_value['a1'], total_steps)
+                    writer.add_scalar("step_a2", metrics_value['a2'], total_steps)
+                    writer.add_scalar("step_a3", metrics_value['a3'], total_steps)
+                    writer.add_scalar("step_rel", metrics_value['abs_rel'], total_steps)
+                    writer.add_scalar("step_rms", metrics_value['rmse'], total_steps)
+                    writer.add_scalar("step_log10", metrics_value['log_10'], total_steps)
+
+                    for param_group in optimizer.param_groups:
+                        writer.add_scalar("epoch_train_lr", param_group['lr'], total_steps)
                     # summary_fn(depth, pred, image, writer, total_steps)
                         
                 total_steps += 1
