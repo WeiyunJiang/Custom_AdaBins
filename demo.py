@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from time import time
 from PIL import Image
-from models import UnetAdaptiveBins
+from models import UnetAdaptiveBins, VGG_UnetAdaptiveBins
 from torchvision.transforms import ToTensor
 import os 
 from args import depth_arg
@@ -18,7 +18,15 @@ class InferenceHelper:
             self.min_depth = 1e-3
             self.max_depth = 10
             self.saving_factor = 1000  # used to save in 16 bit
-            self.model = UnetAdaptiveBins.build_encoder(n_bins=80, min_val=self.min_depth, max_val=self.max_depth)
+            if args.name == 'UnetAdaptiveBins':
+                self.model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
+                                                       max_val=args.max_depth, norm=args.norm)
+            elif args.name == 'VGG_UnetAdaptiveBins':
+                self.model = VGG_UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
+                                                       max_val=args.max_depth, norm=args.norm)
+            else:
+                raise NotImplementedError('Not implemented for name={args.name}')
+            
         self.model.load_state_dict(train_state_dict) 
         self.model.eval()
         self.model.to(device)

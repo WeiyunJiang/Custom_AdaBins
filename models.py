@@ -107,6 +107,8 @@ class mViT(nn.Module):
         bin_widths_normed = bin_widths / bin_widths.sum(dim=1, keepdim=True)
         return bin_widths_normed, range_attention_maps
 
+
+
 class UpSample(nn.Module):
     def __init__(self, input_ch, output_ch):
         super(UpSample, self).__init__()
@@ -139,12 +141,12 @@ class Decoder(nn.Module):
         self.conv3 = nn.Conv2d(int(ch / 16), num_decoded_ch, kernel_size=3, padding=1)
         
     def forward(self, features):
-        #x (2,3,480,640)
-        #x_block0 (2,24,240,320)
-        #x_block1 (2,40,120,160)
-        #x_block2 (2,64,60,80)
-        #x_block3 (2,176,30,40)
-        #x_block4 (2,2048,15,20)
+        #x (2,3,240,320)
+        #x_block0 (2,24,120,160)
+        #x_block1 (2,40,60,80)
+        #x_block2 (2,64,30,40)
+        #x_block3 (2,176,15,20)
+        #x_block4 (2,2048,8,10)
         x_block0, x_block1, x_block2, x_block3, x_block4 = \
             features[4], features[5], features[6], features[8], features[11]
         
@@ -164,41 +166,43 @@ class Decoder(nn.Module):
         return out
 
 class VGG_Decoder(nn.Module):
-    def __init__(self, ch=2048, num_decoded_ch=128):
-        super(Decoder, self).__init__()
+    def __init__(self, ch=512, num_decoded_ch=128):
+        super(VGG_Decoder, self).__init__()
 
         self.conv2 = nn.Conv2d(ch, ch, kernel_size=1, padding=1)
 
-        self.up1 = UpSample(input_ch=int(ch / 1 + 112 + 64), output_ch=int(ch / 2))
-        self.up2 = UpSample(input_ch=int(ch / 2 + 40 + 24), output_ch=int(ch / 4))
-        self.up3 = UpSample(input_ch=int(ch / 4 + 24 + 16), output_ch=int(ch / 8))
-        self.up4 = UpSample(input_ch=int(ch / 8 + 16 + 8), output_ch=int(ch / 16))
+        self.up1 = UpSample(input_ch=int(ch / 1 + 512), output_ch=int(ch / 2))
+        self.up2 = UpSample(input_ch=int(ch / 2 + 256), output_ch=int(ch / 4))
+        self.up3 = UpSample(input_ch=int(ch / 4 + 128), output_ch=int(ch / 8))
+        self.up4 = UpSample(input_ch=int(ch / 8 + 64), output_ch=int(ch / 16))
 
         self.conv3 = nn.Conv2d(int(ch / 16), num_decoded_ch, kernel_size=3, padding=1)
+        self.maxpool3 = nn.MaxPool2d(2, stride=2)
         
     def forward(self, features):
-        #x (2,3,480,640)
-        #x_block0 (2,24,240,320)
-        #x_block1 (2,40,120,160)
-        #x_block2 (2,64,60,80)
-        #x_block3 (2,176,30,40)
-        #x_block4 (2,2048,15,20)
+        #x (2,3,240,320)
+        #x_block0 (2,64,240,320)
+        #x_block1 (2,128,120,160)
+        #x_block2 (2,256,60,80)
+        #x_block3 (2,512,30,40)
+        #x_block4 (2,512,15,20)
         x_block0, x_block1, x_block2, x_block3, x_block4 = \
-            features[4], features[5], features[6], features[8], features[11]
+            features[6], features[13], features[23], features[33], features[43]
         
-        #(2,2048,17,22)
+        #(2,512,17,22)
         x_d0 = self.conv2(x_block4)
-        #(2,1024,30,40)
+        #(2,256,30,40)
         x_d1 = self.up1(x_d0, x_block3)
-        #(2,512,60,80)
+        #(2,128,60,80)
         x_d2 = self.up2(x_d1, x_block2)
-        #(2,256,120,160)
+        #(2,64,120,160)
         x_d3 = self.up3(x_d2, x_block1)
-        #(2,128,240,320)
+        #(2,32,240,320)
         x_d4 = self.up4(x_d3, x_block0)
         
         #(2,128,240,320)
         out = self.conv3(x_d4)
+        out = self.maxpool3(out) #(2,128,120,160)
         return out
 
 
@@ -214,10 +218,23 @@ class Encoder(nn.Module):
             if (key == 'blocks'):
                 for keyb, valueb in value._modules.items():
                     features.append(valueb(features[-1]))
-            else:
+            else: 
                 features.append(value(features[-1]))
         return features
 
+class VGG_Encoder(nn.Module):
+    # extract the skip-layer outputs
+    def __init__(self, encoder_model):
+        super(VGG_Encoder, self).__init__()
+        self.encoder_model = encoder_model
+
+    def forward(self, x):
+        features = [x]
+        for key, value in self.encoder_model._modules.items():
+            if (key == 'features'):
+                for keyb, valueb in value._modules.items():
+                    features.append(valueb(features[-1]))
+        return features
 class UnetAdaptiveBins(nn.Module):
     def __init__(self, encoder_model, num_decoded_ch=128, n_bins=100, 
                  min_val=0.1, max_val=10, norm='linear'):
@@ -292,8 +309,8 @@ class VGG_UnetAdaptiveBins(nn.Module):
         super(VGG_UnetAdaptiveBins, self).__init__()
         self.min_val = min_val
         self.max_val = max_val
-        self.encoder = Encoder(encoder_model)
-        self.decoder = Decoder(num_decoded_ch=num_decoded_ch)
+        self.encoder = VGG_Encoder(encoder_model)
+        self.decoder = VGG_Decoder(num_decoded_ch=num_decoded_ch)
         self.adaptive_bins_layer = mViT(num_decoded_ch=num_decoded_ch, n_query_channels=128, 
                                         patch_size=8, dim_out=n_bins, embedding_dim=num_decoded_ch,
                                         norm=norm)
@@ -344,9 +361,9 @@ class VGG_UnetAdaptiveBins(nn.Module):
         print('Done.')
 
         # # Remove last layer
-        # print('Removing last two layers (global_pool & classifier).')
-        # encoder_model.global_pool = nn.Identity()
-        # encoder_model.classifier = nn.Identity()
+        print('Removing last two layers (avg_pool & classifier).')
+        encoder_model.avgpool = nn.Identity()
+        encoder_model.classifier = nn.Identity()
 
         # Building Encoder-Decoder model
         print('Building Encoder-Decoder model..', end='')

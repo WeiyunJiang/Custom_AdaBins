@@ -7,7 +7,7 @@ import utils
 
 from tqdm import tqdm
 
-from models import VGG_16, UnetAdaptiveBins
+from models import VGG_16, UnetAdaptiveBins, VGG_UnetAdaptiveBins
 
 from dataio import Depth_Dataset
 
@@ -82,9 +82,14 @@ if __name__ == '__main__':
     checkpoints_dir = os.path.join(root_path, 'checkpoints')
     PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
     train_state_dict = torch.load(PATH)
-
-    model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
-                                           max_val=args.max_depth, norm=args.norm)
+    if args.name == 'UnetAdaptiveBins':
+        model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
+                                               max_val=args.max_depth, norm=args.norm)
+    elif args.name == 'VGG_UnetAdaptiveBins':
+        model = VGG_UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
+                                               max_val=args.max_depth, norm=args.norm)
+    else:
+        raise NotImplementedError('Not implemented for name={args.name}')
     model.load_state_dict(train_state_dict)
     model.to(device)
     test(model, test_data_loader, args)

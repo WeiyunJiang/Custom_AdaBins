@@ -12,7 +12,7 @@ import utils
 
 from tqdm import tqdm
 
-from models import VGG_16, UnetAdaptiveBins
+from models import VGG_16, UnetAdaptiveBins, VGG_UnetAdaptiveBins
 
 from dataio import Depth_Dataset
 from loss import SILogLoss, BinsChamferLoss
@@ -221,7 +221,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
 if __name__ == '__main__': 
     args = depth_arg()
     # Set random seed
-    print(f'Using random')
+   
     print(f'Using random seed {args.seed}')
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -238,9 +238,16 @@ if __name__ == '__main__':
         torch.cuda.set_device(device)
     else:
         device = torch.device('cpu')
-    print(device)    
-    model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
-                                           max_val=args.max_depth, norm=args.norm)
+    print(device) 
+    if args.name == 'UnetAdaptiveBins':
+        model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
+                                               max_val=args.max_depth, norm=args.norm)
+    elif args.name == 'VGG_UnetAdaptiveBins':
+        model = VGG_UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
+                                               max_val=args.max_depth, norm=args.norm)
+    else:
+        raise NotImplementedError('Not implemented for name={args.name}')
+    
     '''
     output_size = (320, 240) 
     model = VGG_16(output_size= output_size) 
