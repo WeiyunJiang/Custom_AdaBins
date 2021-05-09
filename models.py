@@ -163,6 +163,43 @@ class Decoder(nn.Module):
         out = self.conv3(x_d4)
         return out
 
+class VGG_Decoder(nn.Module):
+    def __init__(self, ch=2048, num_decoded_ch=128):
+        super(Decoder, self).__init__()
+
+        self.conv2 = nn.Conv2d(ch, ch, kernel_size=1, padding=1)
+
+        self.up1 = UpSample(input_ch=int(ch / 1 + 112 + 64), output_ch=int(ch / 2))
+        self.up2 = UpSample(input_ch=int(ch / 2 + 40 + 24), output_ch=int(ch / 4))
+        self.up3 = UpSample(input_ch=int(ch / 4 + 24 + 16), output_ch=int(ch / 8))
+        self.up4 = UpSample(input_ch=int(ch / 8 + 16 + 8), output_ch=int(ch / 16))
+
+        self.conv3 = nn.Conv2d(int(ch / 16), num_decoded_ch, kernel_size=3, padding=1)
+        
+    def forward(self, features):
+        #x (2,3,480,640)
+        #x_block0 (2,24,240,320)
+        #x_block1 (2,40,120,160)
+        #x_block2 (2,64,60,80)
+        #x_block3 (2,176,30,40)
+        #x_block4 (2,2048,15,20)
+        x_block0, x_block1, x_block2, x_block3, x_block4 = \
+            features[4], features[5], features[6], features[8], features[11]
+        
+        #(2,2048,17,22)
+        x_d0 = self.conv2(x_block4)
+        #(2,1024,30,40)
+        x_d1 = self.up1(x_d0, x_block3)
+        #(2,512,60,80)
+        x_d2 = self.up2(x_d1, x_block2)
+        #(2,256,120,160)
+        x_d3 = self.up3(x_d2, x_block1)
+        #(2,128,240,320)
+        x_d4 = self.up4(x_d3, x_block0)
+        
+        #(2,128,240,320)
+        out = self.conv3(x_d4)
+        return out
 
 
 class Encoder(nn.Module):
@@ -234,7 +271,7 @@ class UnetAdaptiveBins(nn.Module):
     def build_encoder(cls, n_bins, **kwargs):
         encoder_name = 'tf_efficientnet_b5_ap'
 
-        print('Loading pre-trained encoder model ()...'.format(encoder_name), end='')
+        print(f'Loading pre-trained encoder model ({encoder_name})...')
         encoder_model = torch.hub.load('rwightman/gen-efficientnet-pytorch', encoder_name, pretrained=True)
         print('Done.')
 
@@ -248,9 +285,78 @@ class UnetAdaptiveBins(nn.Module):
         m = cls(encoder_model, n_bins=n_bins, **kwargs)
         print('Done.')
         return m
+
+class VGG_UnetAdaptiveBins(nn.Module):
+    def __init__(self, encoder_model, num_decoded_ch=128, n_bins=100, 
+                 min_val=0.001, max_val=10, norm='linear'):
+        super(VGG_UnetAdaptiveBins, self).__init__()
+        self.min_val = min_val
+        self.max_val = max_val
+        self.encoder = Encoder(encoder_model)
+        self.decoder = Decoder(num_decoded_ch=num_decoded_ch)
+        self.adaptive_bins_layer = mViT(num_decoded_ch=num_decoded_ch, n_query_channels=128, 
+                                        patch_size=8, dim_out=n_bins, embedding_dim=num_decoded_ch,
+                                        norm=norm)
+
+        
+        self.conv_out = nn.Sequential(nn.Conv2d(num_decoded_ch, n_bins, kernel_size=1, stride=1, padding=0),
+                                      nn.Softmax(dim=1),
+                                      )
+
+    def forward(self, x, **kwargs):
+        decoded_features = self.decoder(self.encoder(x), **kwargs) # (N, num_decoded_ch, 240, 320)
+        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(decoded_features)
+        # bin_widths_normed (2, n_bins), range_attention_maps (N, num_decoded_ch, 240, 320)
+        range_bins_maps = self.conv_out(range_attention_maps) # (N, n_bins, 240, 320)
+
+        # Post process
+        # N, n_bins, H, W = range_bins_maps.shape
+        # hist = torch.sum(range_bins_maps.view(N, n_bins, H * W), dim=2) / (H * W)  # not used for training
+        
+        # map the bin intervals
+        bin_widths = (self.max_val - self.min_val) * bin_widths_normed  # (N, n_bins)
+        # add the min depth value to the front
+        bin_widths = nn.functional.pad(bin_widths, (1, 0), value=self.min_val) # (N, n_bins + 1)
+        bin_edges = torch.cumsum(bin_widths, dim=1) # (N, n_bins + 1)
+        # compute the width by taking the average of two adjacent bin widths
+        centers = 0.5 * (bin_edges[:, :-1] + bin_edges[:, 1:]) # (N, n_bins)
+        N, n_bins = centers.size()
+        centers = centers.view(N, n_bins, 1, 1) # (N, n_bins, 1, 1)
+
+        pred = torch.sum(range_bins_maps * centers, dim=1, keepdim=True) # (N, 1, 240, 320)
+
+        return centers.view(N, n_bins, 1), pred
+
+    def get_1x_lr_params(self):  # lr/10 learning rate
+        return self.encoder.parameters()
+
+    def get_10x_lr_params(self):  # lr learning rate
+        modules = [self.decoder, self.adaptive_bins_layer, self.conv_out]
+        for m in modules:
+            yield from m.parameters()
+
+    @classmethod
+    def build_encoder(cls, n_bins, **kwargs):
+        encoder_name = 'Vgg-16_BN'
+
+        print(f'Loading pre-trained encoder model ({encoder_name})...')
+        encoder_model = vgg16_bn(pretrained=True)
+        print('Done.')
+
+        # # Remove last layer
+        # print('Removing last two layers (global_pool & classifier).')
+        # encoder_model.global_pool = nn.Identity()
+        # encoder_model.classifier = nn.Identity()
+
+        # Building Encoder-Decoder model
+        print('Building Encoder-Decoder model..', end='')
+        m = cls(encoder_model, n_bins=n_bins, **kwargs)
+        print('Done.')
+        return m
     
 if __name__ == '__main__':
-    model = UnetAdaptiveBins.build_encoder(n_bins=80)
+    # model = UnetAdaptiveBins.build_encoder(n_bins=80)
+    model = VGG_UnetAdaptiveBins.build_encoder(n_bins=80)
     x = torch.rand(2, 3, 240, 320)
     bins, pred = model(x)
     print(bins.shape, pred.shape)
