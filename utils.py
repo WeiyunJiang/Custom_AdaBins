@@ -45,7 +45,7 @@ def write_image_summary(prefix, gt, pred, image, writer, total_steps):
     writer.add_image(prefix + 'gt_vs_pred', make_grid(pred_vs_gt, scale_each=False, normalize=True),
                      global_step=total_steps)
 
-    ori_img = dataio.rescale_img((ori_img+1)/2, mode='clamp').detach().cpu().numpy()
+    ori_img = dataio.rescale_img(ori_img, mode='scale').detach().cpu().numpy()
     
     
     writer.add_image(prefix + 'ori_img', torch.from_numpy(ori_img), global_step=total_steps)
