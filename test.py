@@ -23,15 +23,13 @@ from evaluate import *
 
 
 def test(model, test_data_loader):
-	metrics_test = RunningAverageDict()
-    model.test()
+    metrics_test = RunningAverageDict()
+    model.eval()
         
     for step, batch in tqdm(enumerate(test_data_loader)):  
-            # image(N, 3, 427, 565)
-            # depth(N, 1, 427, 565)
-            
-            
-    	image, depth = batch['image'], batch['depth']
+        # image(N, 3, 427, 565)
+        # depth(N, 1, 427, 565)
+        image, depth = batch['image'], batch['depth']
      	image = image.to(device)
         depth = depth.to(device)
         
@@ -67,7 +65,7 @@ if __name__ == '__main__':
         device = torch.device('cpu')
     print(device)    
     
-    test_dataset = Depth_Dataset(args.dataset, 'test', small_data_num = args.small_data_num)
+    test_dataset = Depth_Dataset(args.dataset, 'test', small_data_num = None)
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     checkpoints_dir = os.path.join(root_path, 'checkpoints')
     PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
