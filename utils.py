@@ -3,7 +3,8 @@ import torch
 from torchvision.utils import make_grid
 import dataio
 import matplotlib.cm
-
+import numpy as np
+import torch.nn.functional as F
 
 def cond_mkdir(path):
     if not os.path.exists(path):
@@ -27,7 +28,7 @@ def colorize(value, vmin=None, vmax=None, cmap='magma_r'):
     value = cmapper(value, bytes=True)  # (nxmx4)
     value[invalid_mask] = 255
     colored_img = value[:, :, :3]
-    colored_img_scaled = float(colored_img) / 255
+    colored_img_scaled = colored_img.astype(np.float) / 255
     #     return img.transpose((2, 0, 1))
     return colored_img_scaled # (H, W, 3)
 
@@ -36,10 +37,11 @@ def count_parameters(model):
 
 def write_image_summary(prefix, gt, pred, image, writer, total_steps):
     # pred (H,W, 3) gt (H, W, 3) image(3, H, W)
-    gt_depth = gt.permute(2,0,1) #(3, H, W)
-    pred_depth = pred.permute(2,0,1) #(3, H, W)
+    gt_depth = torch.from_numpy(gt.transpose(2,0,1)).unsqueeze(0) #(1, 3, H, W)
+    pred_depth = torch.from_numpy(pred.transpose(2,0,1)).unsqueeze(0) #(1, 3, H, W)
+    pred_depth = F.interpolate(pred_depth, gt_depth.shape[-2:], mode='bilinear', align_corners=True)
     ori_img = image #(3, H, W)
-    pred_vs_gt = torch.cat((gt_depth, pred_depth), dim=-1)
+    pred_vs_gt = torch.cat((gt_depth.squeeze(0), pred_depth.squeeze(0)), dim=-1)
     writer.add_image(prefix + 'gt_vs_pred', make_grid(pred_vs_gt, scale_each=False, normalize=True),
                      global_step=total_steps)
 
