@@ -32,10 +32,11 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         utils.cond_mkdir(checkpoints_dir)
         
         writer = SummaryWriter(summaries_dir)
-        
+        depth_gt_list = []
+        pred_list = []
         for step, batch in tqdm(enumerate(val_data_loader)):  
-            # image(N, 3, 427, 565)
-            # depth(N, 1, 427, 565)
+            # image(N, 3, 240, 320)
+            # depth(N, 1, 240, 320)
             
             
             image, depth = batch['image'], batch['depth']
@@ -44,7 +45,18 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
             
             bins, pred = model(image)
             evaluate_model(pred, depth, metrics_val, args)
+            depth_gt_list.append(depth[0]) # (1, H, W)
+            pred_list.append(pred[0])
             
+        depth_gt = depth_gt_list[0] # (1, H, W)
+        pred = pred_list[0]
+        depth_gt[depth_gt < args.min_depth] = args.min_depth
+        depth_gt[depth_gt > args.max_depth] = args.max_depth
+                    
+        colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        utils.write_image_summary('train_', colored_gt, colored_pred, image[0], writer, total_steps)
+                    
         metrics_val_value = metrics_val.get_value()
         writer.add_scalar("step_val_silog_loss", metrics_val_value['silog'], total_steps)
         writer.add_scalar("step_val_a1", metrics_val_value['a1'], total_steps)
@@ -54,7 +66,7 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         writer.add_scalar("step_val_rms", metrics_val_value['rmse'], total_steps)
         writer.add_scalar("step_val_log10", metrics_val_value['log_10'], total_steps)
 
-        tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
+        tqdm.write("Val SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
                    % (metrics_val_value['silog'], metrics_val_value['a1'], metrics_val_value['a2'],
                       metrics_val_value['a3'],metrics_val_value['abs_rel'],metrics_val_value['rmse'],
                       metrics_val_value['log_10']))
@@ -109,6 +121,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
     
     # one cycle lr scheduler
+    
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, epochs=args.epochs, 
                                               steps_per_epoch=len(train_data_loader),
                                               cycle_momentum=True,
@@ -116,7 +129,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                                               last_epoch=args.last_epoch,
                                               div_factor=args.div_factor,
                                               final_div_factor=args.final_div_factor)
-
+    
     total_steps = 0
     metrics = RunningAverageDict()
     best_train_abs_rel = 100
@@ -136,8 +149,8 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
             for step, batch in enumerate(train_data_loader):
                 start_time = time.time()
                 
-                # image(N, 3, 427, 565)
-                # depth(N, 1, 427, 565)
+                # image(N, 3, 240, 320)
+                # depth(N, 1, 240, 320)
                 optimizer.zero_grad()
                 
                 image, depth = batch['image'], batch['depth']
