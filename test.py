@@ -30,13 +30,13 @@ def test(model, test_data_loader):
         # image(N, 3, 427, 565)
         # depth(N, 1, 427, 565)
         image, depth = batch['image'], batch['depth']
-     	image = image.to(device)
+        image = image.to(device)
         depth = depth.to(device)
         
         bins, pred = model(image)
         evaluate(pred, depth, metrics_test, args)
         
-   	metrics_test_value = metrics_val.get_value()
+    metrics_test_value = metrics_val.get_value()
     tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
                    % (metrics_val_value['silog'], metrics_val_value['a1'], metrics_val_value['a2'],
                       metrics_val_value['a3'],metrics_val_value['abs_rel'],metrics_val_value['rmse'],
