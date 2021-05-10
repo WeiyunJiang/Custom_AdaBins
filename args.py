@@ -6,7 +6,7 @@ def depth_arg():
     parser.add_argument('--logging_root', type=str, default='./logs_507', help='root for logging')
     parser.add_argument('--exp_name', type=str, default='baseline', help='experiment name')
     parser.add_argument('--steps_til_summary', default=1, type=int, help='steps to print loss')
-    parser.add_argument('--steps_til_validation', default=1, type=int, help='steps to validate')
+    parser.add_argument('--steps_til_validation', default=25, type=int, help='steps to validate')
     parser.add_argument('--epochs_til_checkpoint', default=1, type=int, help='steps to save pt')
     parser.add_argument('--small_data_num', default=None, type=int, help='use small portion of dataset')
     parser.add_argument('--seed', default=42, type=int, help='random seed')
