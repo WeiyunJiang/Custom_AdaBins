@@ -148,7 +148,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
             print("Epoch {}/{}".format(epoch, args.epochs))
             print('-' * 10)
             epoch_train_losses = []
-            epoch_train_mse_losses = []
+            epoch_train_SILOG_losses = []
             
             if not (epoch+1) % args.epochs_til_checkpoint and epoch:
                 torch.save(model.state_dict(),
@@ -176,7 +176,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 loss.backward()
                 
                 epoch_train_losses.append(loss.clone().detach().cpu().numpy())
-                epoch_train_mse_losses.append(loss_depth.clone().detach().cpu().numpy())
+                epoch_train_SILOG_losses.append(loss_depth.clone().detach().cpu().numpy())
                 
                 clip_grad_norm_(model.parameters(), 0.1)  # optional
                 optimizer.step()
@@ -228,7 +228,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 total_steps += 1
                 
             writer.add_scalar("epoch_train_loss", np.mean(epoch_train_losses), epoch)
-            writer.add_scalar("epoch_train_mse_loss", np.mean(epoch_train_mse_losses), epoch)
+            writer.add_scalar("epoch_train_SILOG_loss", np.mean(epoch_train_SILOG_losses), epoch)
             
             ## validation
             validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args)
