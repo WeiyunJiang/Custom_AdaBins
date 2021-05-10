@@ -40,8 +40,8 @@ def write_image_summary(prefix, gt, pred, image, depth_gt, bins, writer, total_s
     # pred (H, W, 3) gt ( H, W, 3) image(3, H, W) if colorized
     pred = pred.transpose(2, 0, 1)
     gt = gt.transpose(2, 0, 1)
-    gt_depth = gt.unsqueeze(0) #(1, 1, H, W)
-    pred_depth = pred.unsqueeze(0) #(1, 1, H, W)
+    gt_depth = torch.from_numpy(gt).unsqueeze(0) #(1, 1, H, W)
+    pred_depth = torch.from_numpy(pred).unsqueeze(0) #(1, 1, H, W)
     pred_depth = F.interpolate(pred_depth, gt_depth.shape[-2:], mode='bilinear', align_corners=True)
     ori_img = image #(3, H, W)
     pred_vs_gt = torch.cat((gt_depth.squeeze(0), pred_depth.squeeze(0)), dim=-1)

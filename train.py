@@ -190,8 +190,10 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     depth_gt[depth_gt > args.max_depth] = args.max_depth
                     pred = pred[0] # (1, H, W)
                     #pred_up = nn.functional.interpolate(pred, depth_gt.shape[-2:], mode = 'bilinear', align_corners=True)
+                    
+                    
                     colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-                    colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
                     # pred_rescaled = dataio.rescale_img(pred, mode='scale')
                     # gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
                     bins = bins.cpu().squeeze().numpy()
