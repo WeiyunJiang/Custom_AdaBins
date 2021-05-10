@@ -36,9 +36,9 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def write_image_summary(prefix, gt, pred, image, writer, total_steps):
-    # pred (H,W, 3) gt (H, W, 3) image(3, H, W)
-    gt_depth = torch.from_numpy(gt.transpose(2,0,1)).unsqueeze(0) #(1, 3, H, W)
-    pred_depth = torch.from_numpy(pred.transpose(2,0,1)).unsqueeze(0) #(1, 3, H, W)
+    # pred (1, H, W) gt (1, H, W) image(3, H, W)
+    gt_depth = gt.unsqueeze(0) #(1, 1, H, W)
+    pred_depth = pred.unsqueeze(0) #(1, 1, H, W)
     pred_depth = F.interpolate(pred_depth, gt_depth.shape[-2:], mode='bilinear', align_corners=True)
     ori_img = image #(3, H, W)
     pred_vs_gt = torch.cat((gt_depth.squeeze(0), pred_depth.squeeze(0)), dim=-1)

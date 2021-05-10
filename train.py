@@ -13,9 +13,9 @@ import utils
 from tqdm import tqdm
 
 from models import VGG_16, UnetAdaptiveBins, VGG_UnetAdaptiveBins
-
+import dataio
 from dataio import Depth_Dataset
-from loss import SILogLoss, BinsChamferLoss
+from loss import SILogLoss, BinsChamferLoss, MSELoss
 from args import depth_arg
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
@@ -52,10 +52,11 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         pred = pred_list[0]
         depth_gt[depth_gt < args.min_depth] = args.min_depth
         depth_gt[depth_gt > args.max_depth] = args.max_depth
-                    
-        colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-        colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-        utils.write_image_summary('val_', colored_gt, colored_pred, image[0], writer, total_steps)
+        gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
+        pred_rescaled = dataio.rescale_img(pred, mode='scale')
+        #colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        #colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        utils.write_image_summary('val_', gt_rescaled, pred_rescaled, image[0], writer, total_steps)
                     
         metrics_val_value = metrics_val.get_value()
         writer.add_scalar("step_val_silog_loss", metrics_val_value['silog'], total_steps)
@@ -108,7 +109,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     val_data_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
     
     # define loss criterion for depth and bin maps
-    criterion_depth = SILogLoss() 
+    criterion_depth = MSELoss() 
     criterion_bins = BinsChamferLoss()
     
     model.train(True)
@@ -121,7 +122,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
     
     # one cycle lr scheduler
-    
+    '''
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, epochs=args.epochs, 
                                               steps_per_epoch=len(train_data_loader),
                                               cycle_momentum=True,
@@ -129,7 +130,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                                               last_epoch=args.last_epoch,
                                               div_factor=args.div_factor,
                                               final_div_factor=args.final_div_factor)
-    
+    '''
     total_steps = 0
     metrics = RunningAverageDict()
     best_train_abs_rel = 100
@@ -140,7 +141,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
             print("Epoch {}/{}".format(epoch, args.epochs))
             print('-' * 10)
             epoch_train_losses = []
-            epoch_train_silog_losses = []
+            epoch_train_mse_losses = []
             
             if not (epoch+1) % args.epochs_til_checkpoint and epoch:
                 torch.save(model.state_dict(),
@@ -168,7 +169,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 loss.backward()
                 
                 epoch_train_losses.append(loss.clone().detach().cpu().numpy())
-                epoch_train_silog_losses.append(loss_depth.clone().detach().cpu().numpy())
+                epoch_train_mse_losses.append(loss_depth.clone().detach().cpu().numpy())
                 
                 clip_grad_norm_(model.parameters(), 0.1)  # optional
                 optimizer.step()
@@ -179,12 +180,15 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     depth_gt = depth[0] # (1, H, W)
                     depth_gt[depth_gt < args.min_depth] = args.min_depth
                     depth_gt[depth_gt > args.max_depth] = args.max_depth
-                    
-                    colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-                    colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-                    utils.write_image_summary('train_', colored_gt, colored_pred, image[0], writer, total_steps)
+                    pred = pred[0] # (1, H, W)
+                    #pred_up = nn.functional.interpolate(pred, depth_gt.shape[-2:], mode = 'bilinear', align_corners=True)
+                    #colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    #colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    pred_rescaled = dataio.rescale_img(pred, mode='scale')
+                    gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
+                    utils.write_image_summary('train_', gt_rescaled, pred_rescaled, image[0], writer, total_steps)
                 
-                scheduler.step()
+                #scheduler.step()
                 
                 pbar.update(1)
                 
@@ -212,7 +216,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 total_steps += 1
                 
             writer.add_scalar("epoch_train_loss", np.mean(epoch_train_losses), epoch)
-            writer.add_scalar("epoch_train_silog_loss", np.mean(epoch_train_silog_losses), epoch)
+            writer.add_scalar("epoch_train_mse_loss", np.mean(epoch_train_mse_losses), epoch)
             
             ## validation
             validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args)
