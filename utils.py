@@ -35,7 +35,7 @@ def colorize(value, vmin=None, vmax=None, cmap='magma_r'):
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def write_image_summary(prefix, gt, pred, image, writer, total_steps):
+def write_image_summary(prefix, gt, pred, image, depth_gt, bins, writer, total_steps):
     # pred (1, H, W) gt (1, H, W) image(3, H, W)
     gt_depth = gt.unsqueeze(0) #(1, 1, H, W)
     pred_depth = pred.unsqueeze(0) #(1, 1, H, W)
@@ -49,4 +49,9 @@ def write_image_summary(prefix, gt, pred, image, writer, total_steps):
     
     
     writer.add_image(prefix + 'ori_img', torch.from_numpy(ori_img), global_step=total_steps)
+    
+    writer.add_histogram(prefix + 'gt_bins', depth_gt, bins=30, global_step=total_steps)
+    writer.add_histogram(prefix + 'pred_bins', bins, bins=30, global_step=total_steps)
+    
+    
     

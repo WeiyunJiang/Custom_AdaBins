@@ -13,9 +13,9 @@ def depth_arg():
     parser.add_argument('--epochs', default=25, type=int, help='number of total epochs to run')
     parser.add_argument('--n-bins', '--n_bins', default=80, type=int,
                         help='number of bins/buckets to divide depth range into')
-    parser.add_argument('--lr', '--learning-rate', default=0.000357, type=float, help='max learning rate')
-    parser.add_argument('--wd', '--weight-decay', default=0.1, type=float, help='weight decay')
-    parser.add_argument('--w_chamfer', '--w-chamfer', default=0.0, type=float, help="weight value for chamfer loss")
+    parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float, help='max learning rate') # 0.000357
+    parser.add_argument('--wd', '--weight-decay', default=0.0001, type=float, help='weight decay')
+    parser.add_argument('--w_chamfer', '--w-chamfer', default=0.05, type=float, help="weight value for chamfer loss")
     parser.add_argument('--div-factor', '--div_factor', default=25, type=float, help="Initial div factor for lr")
     parser.add_argument('--final-div-factor', '--final_div_factor', default=100, type=float,
                         help="final div factor for lr")

@@ -56,7 +56,13 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         pred_rescaled = dataio.rescale_img(pred, mode='scale')
         #colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
         #colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-        utils.write_image_summary('val_', gt_rescaled, pred_rescaled, image[0], writer, total_steps)
+        bins = bins.cpu().squeeze().numpy()
+        bins = bins[bins > args.min_depth]
+        bins = bins[bins < args.max_depth]
+        bins = bins[0]
+        utils.write_image_summary('val_', gt_rescaled, pred_rescaled, 
+                                  image[0], depth_gt, bins, writer, total_steps)
+        
                     
         metrics_val_value = metrics_val.get_value()
         writer.add_scalar("step_val_silog_loss", metrics_val_value['silog'], total_steps)
@@ -109,7 +115,8 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     val_data_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
     
     # define loss criterion for depth and bin maps
-    criterion_depth = MSELoss() 
+    # criterion_depth = MSELoss()
+    criterion_depth = SILogLoss()
     criterion_bins = BinsChamferLoss()
     
     model.train(True)
@@ -186,7 +193,12 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     #colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
                     pred_rescaled = dataio.rescale_img(pred, mode='scale')
                     gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
-                    utils.write_image_summary('train_', gt_rescaled, pred_rescaled, image[0], writer, total_steps)
+                    bins = bins.cpu().squeeze().numpy()
+                    bins = bins[bins > args.min_depth]
+                    bins = bins[bins < args.max_depth]
+                    bins = bins[0]
+                    utils.write_image_summary('train_', gt_rescaled, pred_rescaled, 
+                                              image[0], depth_gt, bins, writer, total_steps)
                 
                 #scheduler.step()
                 
@@ -260,7 +272,7 @@ if __name__ == '__main__':
     
     model.to(device) 
     total_n_params = utils.count_parameters(model)
-    print(f'Total number of parameters: {total_n_params}')
+    print(f'Total number of parameters of {args.name}: {total_n_params}')
     
     args.epoch = 0 
     args.last_epoch = -1
