@@ -49,7 +49,8 @@ def write_image_summary(prefix, gt, pred, image, depth_gt, bins, writer, total_s
     
     
     writer.add_image(prefix + 'ori_img', torch.from_numpy(ori_img), global_step=total_steps)
-    
+    depth_gt = depth_gt.squeeze()
+    bins = bins.squeeze()
     writer.add_histogram(prefix + 'gt_bins', depth_gt, bins=30, global_step=total_steps)
     writer.add_histogram(prefix + 'pred_bins', bins, bins=30, global_step=total_steps)
     
