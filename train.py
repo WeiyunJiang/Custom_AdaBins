@@ -52,16 +52,16 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         pred = pred_list[0]
         depth_gt[depth_gt < args.min_depth] = args.min_depth
         depth_gt[depth_gt > args.max_depth] = args.max_depth
-        gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
-        pred_rescaled = dataio.rescale_img(pred, mode='scale')
-        #colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-        #colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        # gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
+        # pred_rescaled = dataio.rescale_img(pred, mode='scale')
+        colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
         bins = bins[0]
         bins = bins.cpu().squeeze().numpy()
         bins = bins[bins > args.min_depth]
         bins = bins[bins < args.max_depth]
         
-        utils.write_image_summary('val_', gt_rescaled, pred_rescaled, 
+        utils.write_image_summary('val_', colored_gt, colored_pred, 
                                   image[0], depth_gt, bins, writer, total_steps)
         
                     
@@ -190,17 +190,17 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     depth_gt[depth_gt > args.max_depth] = args.max_depth
                     pred = pred[0] # (1, H, W)
                     #pred_up = nn.functional.interpolate(pred, depth_gt.shape[-2:], mode = 'bilinear', align_corners=True)
-                    #colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-                    #colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
-                    pred_rescaled = dataio.rescale_img(pred, mode='scale')
-                    gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
+                    colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    colored_pred = utils.colorize(pred[0], vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+                    # pred_rescaled = dataio.rescale_img(pred, mode='scale')
+                    # gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
                     bins = bins.cpu().squeeze().numpy()
                     bins = bins[0]
                     bins = bins[bins > args.min_depth]
                     bins = bins[bins < args.max_depth]
                     
                     
-                    utils.write_image_summary('train_', gt_rescaled, pred_rescaled, 
+                    utils.write_image_summary('train_', colored_gt, colored_pred, 
                                               image[0], depth_gt, bins, writer, total_steps)
                 
                 #scheduler.step()

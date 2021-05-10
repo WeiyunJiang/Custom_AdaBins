@@ -36,7 +36,10 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def write_image_summary(prefix, gt, pred, image, depth_gt, bins, writer, total_steps):
-    # pred (1, H, W) gt (1, H, W) image(3, H, W)
+    # pred (1, H, W) gt (1, H, W) image(3, H, W) if scaled
+    # pred (H, W, 3) gt ( H, W, 3) image(3, H, W) if colorized
+    pred = pred.transpose(2, 0, 1)
+    gt = gt.transpose(2, 0, 1)
     gt_depth = gt.unsqueeze(0) #(1, 1, H, W)
     pred_depth = pred.unsqueeze(0) #(1, 1, H, W)
     pred_depth = F.interpolate(pred_depth, gt_depth.shape[-2:], mode='bilinear', align_corners=True)
