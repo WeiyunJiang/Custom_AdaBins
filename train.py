@@ -56,10 +56,11 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         pred_rescaled = dataio.rescale_img(pred, mode='scale')
         #colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
         #colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+        bins = bins[0]
         bins = bins.cpu().squeeze().numpy()
         bins = bins[bins > args.min_depth]
         bins = bins[bins < args.max_depth]
-        bins = bins[0]
+        
         utils.write_image_summary('val_', gt_rescaled, pred_rescaled, 
                                   image[0], depth_gt, bins, writer, total_steps)
         
@@ -166,7 +167,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 depth = depth.to(device)
                 
                 bins, pred = model(image)
-
+                
                 mask = depth > args.min_depth
                 mask = mask.to(torch.bool)
                 loss_depth = criterion_depth(pred, depth, mask=mask)
@@ -194,9 +195,11 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                     pred_rescaled = dataio.rescale_img(pred, mode='scale')
                     gt_rescaled = dataio.rescale_img(depth_gt, mode='scale')
                     bins = bins.cpu().squeeze().numpy()
+                    bins = bins[0]
                     bins = bins[bins > args.min_depth]
                     bins = bins[bins < args.max_depth]
-                    bins = bins[0]
+                    
+                    
                     utils.write_image_summary('train_', gt_rescaled, pred_rescaled, 
                                               image[0], depth_gt, bins, writer, total_steps)
                 
