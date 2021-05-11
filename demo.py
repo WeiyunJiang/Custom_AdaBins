@@ -131,3 +131,7 @@ if __name__ == '__main__':
     pth_rgb_2 = "office/rgb_00008.jpg"
     pth_gt_2 = "office/sync_depth_00008.png"
     plot_gt_pred(pth_rgb_2, pth_gt_2)
+    pth_rgb_3 = "office/rgb_00270.jpg"
+    pth_gt_3 = "office/sync_depth_00270.png"
+    plot_gt_pred(pth_rgb_3, pth_gt_3)
+    
