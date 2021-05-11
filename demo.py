@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from time import time
 from PIL import Image
 from models import UnetAdaptiveBins, VGG_UnetAdaptiveBins
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, Compose, Normalize
 import os 
 from args import depth_arg
 import torch
@@ -30,13 +30,17 @@ class InferenceHelper:
         self.model.load_state_dict(train_state_dict) 
         self.model.eval()
         self.model.to(device)
+        self.transform_image = Compose([
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
 
     @torch.no_grad()
     def predict_pil(self, pil_image, visualized=False):
         # pil_image = pil_image.resize((640, 480))
         img = np.asarray(pil_image) / 255.
 
-        img = self.toTensor(img).unsqueeze(0).float().to(self.device)
+        img = self.transform_image(img).unsqueeze(0).float().to(self.device)
         bin_centers, pred = self.predict(img)
 
         if visualized:
