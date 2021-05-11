@@ -84,7 +84,7 @@ if __name__ == '__main__':
         device = torch.device('cpu')
     print(device)  
     
-    img = Image.open("dataset/nyu_depth_v2/official_splits/test/classroom/rgb_00283.jpg")
+    img = Image.open("dataset/nyu_depth_v2/official_splits/test/bathroom/rgb_00045.jpg")
     img = img.resize((320, 240))
     start = time()
     root_path = os.path.join(args.logging_root, args.exp_name)
@@ -95,5 +95,6 @@ if __name__ == '__main__':
     centers, pred = inferHelper.predict_pil(img)
     print(f"took :{time() - start}s")
     plt.imshow(pred.squeeze(), cmap='magma_r')
+    plt.axis('off')
     plt.show()
-    plt.savefig('test_imgs/classroom__rgb_00283_depth.jpg')
+    plt.savefig(f'test_imgs/{args.exp_name}_bathroom__rgb_00045_depth.jpg', bbox_inches='tight')

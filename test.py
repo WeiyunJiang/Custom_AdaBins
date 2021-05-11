@@ -25,7 +25,7 @@ def test(model, test_data_loader, args):
         model.eval()
         pred_list = []
         depth_gt_list = []
-        image_list = []
+        
         for step, batch in tqdm(enumerate(test_data_loader)):  
             # image(N, 3, 427, 565)
             # depth(N, 1, 427, 565)
@@ -37,7 +37,7 @@ def test(model, test_data_loader, args):
             evaluate_model(pred, depth, metrics_test, args)
             pred_list.append(pred[0])
             depth_gt_list.append(depth[0])
-            image_list.append(image[0])
+            
         metrics_test_value = metrics_test.get_value()
         tqdm.write("SiLog Loss: %.4f, a1: %.4f, a2: %.4f, a3: %.4f, rel: %.4f, rms: %.4f, log10: %.4f" 
                 % (metrics_test_value['silog'], metrics_test_value['a1'], metrics_test_value['a2'],
@@ -46,7 +46,7 @@ def test(model, test_data_loader, args):
         depth_gt = depth_gt_list[0] # (1, H, W)
         
         pred = pred_list[0]
-        image = image_list[0]
+    
         
         depth_gt[depth_gt < args.min_depth] = args.min_depth
         depth_gt[depth_gt > args.max_depth] = args.max_depth
@@ -54,16 +54,18 @@ def test(model, test_data_loader, args):
         colored_gt = utils.colorize(depth_gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
         colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
         plt.imshow(colored_pred, cmap='magma_r')
+        plt.axis('off')
         plt.show()
-        plt.savefig(f'test_imgs/{args.exp_name}_colored_pred.jpg')
+        plt.savefig(f'test_imgs/{args.exp_name}_colored_pred.jpg', bbox_inches='tight')
         plt.figure()
         plt.imshow(colored_gt, cmap='magma_r')
+        plt.axis('off')
         plt.show()
-        plt.savefig(f'test_imgs/{args.exp_name}_colored_gt.jpg')
-        plt.figure()
-        plt.imshow(image.cpu(), cmap='magma_r')
-        plt.show()
-        plt.savefig(f'test_imgs/{args.exp_name}_ori_image.jpg')
+        plt.savefig(f'test_imgs/{args.exp_name}_colored_gt.jpg', bbox_inches='tight')
+     
+        
+        
+        
         
         
 if __name__ == '__main__': 
