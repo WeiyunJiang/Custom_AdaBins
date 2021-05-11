@@ -72,6 +72,35 @@ class InferenceHelper:
         centers = centers[centers < self.max_depth]
 
         return centers, final
+def plot_gt_pred(pth_rgb, pth_gt):
+    base_pth = "dataset/nyu_depth_v2/official_splits/test/"
+    
+    img = Image.open(base_pth + pth_rgb)
+    img = img.resize((320, 240))
+    gt = Image.open(base_pth + pth_gt)
+    gt = gt.crop((43, 45, 608, 472))
+    gt = gt.resize((160, 120))
+    gt = np.asarray(gt) / 255.
+    plt.figure()
+    plt.imshow(gt, cmap='magma_r')
+    plt.axis('off')
+    plt.show()
+    plt.savefig(f'test_imgs/{args.exp_name}_gt'+pth_rgb[-10:-4]+'.jpg', bbox_inches='tight')
+    
+    start = time()
+    root_path = os.path.join(args.logging_root, args.exp_name)
+    checkpoints_dir = os.path.join(root_path, 'checkpoints')
+    PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
+    train_state_dict = torch.load(PATH)
+    inferHelper = InferenceHelper(train_state_dict, args, device)
+    centers, pred = inferHelper.predict_pil(img)
+    print(f"took :{time() - start}s")
+    plt.figure()
+    plt.imshow(pred.squeeze(), cmap='magma_r')
+    plt.axis('off')
+    plt.show()
+    plt.savefig(f'test_imgs/{args.exp_name}_pred'+pth_rgb[-10:-4]+'.jpg', bbox_inches='tight')
+    
 if __name__ == '__main__':
     args = depth_arg()
     resolution = (320, 240)
@@ -84,17 +113,10 @@ if __name__ == '__main__':
         device = torch.device('cpu')
     print(device)  
     
-    img = Image.open("dataset/nyu_depth_v2/official_splits/test/bathroom/rgb_00045.jpg")
-    img = img.resize((320, 240))
-    start = time()
-    root_path = os.path.join(args.logging_root, args.exp_name)
-    checkpoints_dir = os.path.join(root_path, 'checkpoints')
-    PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
-    train_state_dict = torch.load(PATH)
-    inferHelper = InferenceHelper(train_state_dict, args, device)
-    centers, pred = inferHelper.predict_pil(img)
-    print(f"took :{time() - start}s")
-    plt.imshow(pred.squeeze(), cmap='magma_r')
-    plt.axis('off')
-    plt.show()
-    plt.savefig(f'test_imgs/{args.exp_name}_bathroom__rgb_00045_depth.jpg', bbox_inches='tight')
+    pth_rgb_1 = "bathroom/rgb_00045.jpg"
+    pth_gt_1 = "bathroom/sync_depth_00045.png"
+    plot_gt_pred(pth_rgb_1, pth_gt_1)
+    
+    pth_rgb_2 = "office/rgb_00008.jpg"
+    pth_gt_2 = "office/sync_depth_00008.png"
+    plot_gt_pred(pth_rgb_2, pth_gt_2)
