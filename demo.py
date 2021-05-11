@@ -58,8 +58,8 @@ class InferenceHelper:
 
         # Take average of original and mirror
         final = 0.5 * (pred + pred_lr)
-        final = nn.functional.interpolate(torch.Tensor(final), image.shape[-2:],
-                                          mode='bilinear', align_corners=True).cpu().numpy()
+        #final = nn.functional.interpolate(torch.Tensor(final), image.shape[-2:],
+                                         # mode='bilinear', align_corners=True).cpu().numpy()
 
         final[final < self.min_depth] = self.min_depth
         final[final > self.max_depth] = self.max_depth
@@ -79,12 +79,12 @@ def plot_gt_pred(pth_rgb, pth_gt):
     img = img.resize((320, 240))
     gt = Image.open(base_pth + pth_gt)
     gt = gt.crop((43, 45, 608, 472))
-    gt = gt.resize((160, 120))
+    gt = gt.resize((320, 240))
     gt = np.asarray(gt) / 255.
     gt[gt < args.min_depth] = args.min_depth
     gt[gt > args.max_depth] = args.max_depth
                 
-    colored_gt = utils.colorize(gt, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+    colored_gt = utils.colorize(torch.from_numpy(gt).unsqueeze(0), vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
     
     plt.figure()
     plt.imshow(colored_gt, cmap='magma_r')
@@ -99,8 +99,8 @@ def plot_gt_pred(pth_rgb, pth_gt):
     train_state_dict = torch.load(PATH)
     inferHelper = InferenceHelper(train_state_dict, args, device)
     centers, pred = inferHelper.predict_pil(img)
-    
-    colored_pred = utils.colorize(pred, vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
+    print(np.shape(pred))
+    colored_pred = utils.colorize(torch.from_numpy(pred).squeeze(0), vmin=None, vmax=None, cmap='magma_r') # (H, W, 3)
     print(f"took :{time() - start}s")
     plt.figure()
     plt.imshow(colored_pred, cmap='magma_r')
