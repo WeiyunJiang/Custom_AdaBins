@@ -123,7 +123,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     model.train(True)
     
     # we want to tune the parameter of the pretrained encoder more carefully
-    if args.pretrained is True:
+    if args.pretrain is True:
         print('Using different learning rates')
         params = [{"params": model.get_1x_lr_params(), "lr": args.lr / 10},
                   {"params": model.get_10x_lr_params(), "lr": args.lr}]
