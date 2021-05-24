@@ -15,7 +15,7 @@ from tqdm import tqdm
 from models import VGG_16, UnetAdaptiveBins, VGG_UnetAdaptiveBins
 import dataio
 from dataio import Depth_Dataset
-from loss import SILogLoss, BinsChamferLoss, MSELoss
+from loss import SILogLoss, BinsChamferLoss, MSELoss, BerhuLoss
 from args import depth_arg
 from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
@@ -89,6 +89,8 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
     
     
 def train_model(model, model_dir, args, summary_fn=None, device=None):
+    if args.newloss is True:
+        print("Using new loss function" + "!" * 100)
     if os.path.exists(model_dir):
         val = input("The model directory %s exists. Overwrite? (y/n)"%model_dir)
         if val == 'y':
@@ -119,6 +121,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     # define loss criterion for depth and bin maps
     # criterion_depth = MSELoss()
     criterion_depth = SILogLoss()
+    criterion_new = BerhuLoss()
     criterion_bins = BinsChamferLoss()
     
     model.train(True)
@@ -178,9 +181,15 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 mask = depth > args.min_depth
                 mask = mask.to(torch.bool)
                 loss_depth = criterion_depth(pred, depth, mask=mask)
+                
                 loss_bin = criterion_bins(bins, depth)
                 
                 loss = loss_depth + args.w_chamfer * loss_bin
+                if args.newloss is True:
+
+                    loss_new = criterion_new(pred, depth, mask=mask)
+                    loss = loss + loss_new * 20
+ 
                 loss.backward()
                 
                 epoch_train_losses.append(loss.clone().detach().cpu().numpy())
