@@ -105,7 +105,8 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     writer = SummaryWriter(summaries_dir)
     
     # initialize dataset
-    train_dataset = Depth_Dataset(args.dataset, 'train', small_data_num = args.small_data_num)
+    train_dataset = Depth_Dataset(args.dataset, 'train', data_aug=args.data_aug,
+                                  small_data_num = args.small_data_num)
     num_train = int(0.9 * len(train_dataset))
     num_val = len(train_dataset) - num_train
     train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, 

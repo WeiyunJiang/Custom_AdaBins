@@ -6,13 +6,16 @@ Created on Wed Apr 28 11:16:03 2021
 @author: weiyunjiang
 """
 import os
+import random
 
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import Normalize, Compose, ToTensor
+import torchvision.transforms as transforms
+import torchvision.transforms.functional as TF
+# from torchvision.transforms import Normalize, RandomGrayscale, Compose, ToTensor, ColorJitter, RandomHorizontalFlip, RandomApply, RandomRotation
 
 
 class Depth_Dataset(Dataset):
@@ -22,7 +25,8 @@ class Depth_Dataset(Dataset):
     small_data_num: number of data samples used
     
     """
-    def __init__(self, data_name, split, resolution=(320, 240), downsample=True, small_data_num=None):
+    def __init__(self, data_name, split, data_aug=False, resolution=(320, 240), 
+                 downsample=True, small_data_num=None):
         self.downsample = downsample
         self.resolution = resolution
         if data_name == 'nyu':
@@ -39,15 +43,33 @@ class Depth_Dataset(Dataset):
                 
         else:
             raise NotImplementedError('Not implemented for data_name={data_name}')
+          
+        if data_aug is True:
+            print('Using Data Augmentation')
+            # brightness=0.4, contrast=0.4, saturation=0.4, and hue=0.1
+            color_jitter = transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
             
-        self.transform_image = Compose([
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-        self.transform_depth = Compose([
-            ToTensor(),
-        ])
+            self.cjitter = color_jitter # only image
+            
+            self.transform_image = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+            self.transform_depth = transforms.Compose([
+                transforms.ToTensor(),
+                    ])
+        else:
+            print('NOT using Data Augmentation !!!!')
+            
+            self.transform_image = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+            self.transform_depth = transforms.Compose([
+                transforms.ToTensor(),
+            ])
         self.split = split
+        self.data_aug = data_aug
         self.small_data_num = small_data_num
         self.data_name = data_name
         if self.split == 'test':
@@ -92,7 +114,23 @@ class Depth_Dataset(Dataset):
         # if self.data_name == 'nyu':
         #     depth_gt = depth_gt.crop((43, 45, 608, 472))
         #     image = image.crop((43, 45, 608, 472))
-        
+        if self.data_aug is True:
+            # hflip with p = 0.5
+            if random.random() > 0.5:
+                image = TF.hflip(image)
+                depth_gt = TF.hflip(depth_gt)
+                
+            # colorjitter with p = 0.2
+            if random.random() > 0.8:
+                image = self.cjitter(image)
+                
+            # (rotate -2.5 to 2.5 degrees with p=0.2)
+            if random.random() > 0.8:
+                angle_bound = 2.5
+                random_angle = (random.random() - 0.5) * 2 * angle_bound
+                image = image.rotate(random_angle)
+                depth_gt = depth_gt.rotate(random_angle)
+                
         image = np.asarray(image, dtype=np.uint8) 
         depth_gt = np.asarray(depth_gt, dtype=np.float32)
         depth_gt = np.expand_dims(depth_gt, axis=2)
@@ -103,7 +141,7 @@ class Depth_Dataset(Dataset):
             depth_gt = depth_gt / 256.0
         else:
             raise NotImplementedError('Not implemented for data_name={data_name}')
-
+        
         image = self.transform_image(image.copy())
         depth_gt = self.transform_depth(depth_gt.copy())
         sample = {'image': image, 'depth': depth_gt}
@@ -128,8 +166,14 @@ def rescale_img(x, mode='scale', perc=None, tmax=1.0, tmin=0.0):
 
 if __name__ == '__main__':
     from models import VGG_16
-    
-    train_dataset = Depth_Dataset('nyu', 'train', small_data_num=100)
+    from args import depth_arg
+
+    args = depth_arg()
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    train_dataset = Depth_Dataset('nyu', 'train', data_aug=True, small_data_num=100)
     print(train_dataset[0])
     # train and val
     train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [90, 10])
