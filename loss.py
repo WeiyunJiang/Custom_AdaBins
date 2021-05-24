@@ -5,6 +5,25 @@ from torch.nn.utils.rnn import pad_sequence
 from pytorch3d.loss import chamfer_distance
 
 
+class BerhuLoss(nn.Module):
+    def __init__(self):
+        super(BerhuLoss, self).__init__()
+
+    def forward(self, pred, target, mask=None, interpolate=True):
+        if interpolate:
+            pred = nn.functional.interpolate(pred, target.shape[-2:], mode='bilinear', align_corners=True)
+        if mask is not None:
+            pred = pred[mask]
+            target = target[mask]
+        c = 0.2*(torch.max(torch.abs(target-pred)))
+        mat =  torch.abs(target-pred)
+        result = torch.zeros_like(mat)
+        result[mat > c] = (mat[mat > c]**2 + c **2)/(2*c)
+        result[mat < c] = torch.abs(mat[mat < c])
+        return torch.mean(result)
+
+
+        
 
 class MSELoss(nn.Module):
     def __init__(self):
