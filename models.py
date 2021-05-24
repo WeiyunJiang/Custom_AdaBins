@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import vgg16_bn
+import utils
 
 class VGG_16(nn.Module):
     """ Naive VGG-16
@@ -251,6 +252,12 @@ class UnetAdaptiveBins(nn.Module):
         self.conv_out = nn.Sequential(nn.Conv2d(num_decoded_ch, n_bins, kernel_size=1, stride=1, padding=0),
                                       nn.Softmax(dim=1),
                                       )
+        enc_n_params = utils.count_parameters(self.encoder)
+        print(f'Total number of parameters of encoder: {enc_n_params}')
+        dec_n_params = utils.count_parameters(self.decoder)
+        print(f'Total number of parameters of decoder: {dec_n_params}')
+        adabin_n_params = utils.count_parameters(self.adaptive_bins_layer)
+        print(f'Total number of parameters of adabin: {adabin_n_params}')
 
     def forward(self, x, **kwargs):
         decoded_features = self.decoder(self.encoder(x), **kwargs) # (N, num_decoded_ch, 240, 320)
@@ -296,7 +303,9 @@ class UnetAdaptiveBins(nn.Module):
         print('Removing last two layers (global_pool & classifier).')
         encoder_model.global_pool = nn.Identity()
         encoder_model.classifier = nn.Identity()
-
+        
+        total_n_params = utils.count_parameters(encoder_model)
+        print(f'Total number of parameters of {encoder_name}: {total_n_params}')
         # Building Encoder-Decoder model
         print('Building Encoder-Decoder model..', end='')
         m = cls(encoder_model, n_bins=n_bins, **kwargs)
@@ -319,7 +328,13 @@ class VGG_UnetAdaptiveBins(nn.Module):
         self.conv_out = nn.Sequential(nn.Conv2d(num_decoded_ch, n_bins, kernel_size=1, stride=1, padding=0),
                                       nn.Softmax(dim=1),
                                       )
-
+        enc_n_params = utils.count_parameters(self.encoder)
+        print(f'Total number of parameters of encoder: {enc_n_params}')
+        dec_n_params = utils.count_parameters(self.decoder)
+        print(f'Total number of parameters of decoder: {dec_n_params}')
+        adabin_n_params = utils.count_parameters(self.adaptive_bins_layer)
+        print(f'Total number of parameters of adabin: {adabin_n_params}')
+        
     def forward(self, x, **kwargs):
         decoded_features = self.decoder(self.encoder(x), **kwargs) # (N, num_decoded_ch, 240, 320)
         bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(decoded_features)
@@ -359,12 +374,15 @@ class VGG_UnetAdaptiveBins(nn.Module):
         print(f'Loading pre-trained encoder model ({encoder_name})...')
         encoder_model = vgg16_bn(pretrained=True)
         print('Done.')
-
+        
         # # Remove last layer
         print('Removing last two layers (avg_pool & classifier).')
         encoder_model.avgpool = nn.Identity()
         encoder_model.classifier = nn.Identity()
-
+        
+        total_n_params = utils.count_parameters(encoder_model)
+        print(f'Total number of parameters of {encoder_name}: {total_n_params}')
+        
         # Building Encoder-Decoder model
         print('Building Encoder-Decoder model..', end='')
         m = cls(encoder_model, n_bins=n_bins, **kwargs)
