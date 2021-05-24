@@ -16,10 +16,10 @@ class VGG_16(nn.Module):
     
         
     """
-    def __init__(self, output_size=(320, 240)):
+    def __init__(self, output_size=(320, 240), pretrained=True):
         super(VGG_16, self).__init__()
         self.output_size = output_size
-        self.vgg = vgg16_bn(pretrained=True)
+        self.vgg = vgg16_bn(pretrained=pretrained)
         self.vgg.classifier._modules['6'] = nn.Linear(4096, output_size[0]*output_size[1])
         self.transform = torch.nn.functional.interpolate
 
@@ -292,11 +292,11 @@ class UnetAdaptiveBins(nn.Module):
             yield from m.parameters()
 
     @classmethod
-    def build_encoder(cls, n_bins, **kwargs):
+    def build_encoder(cls, n_bins, pretrained=True, **kwargs):
         encoder_name = 'tf_efficientnet_b5_ap'
 
         print(f'Loading pre-trained encoder model ({encoder_name})...')
-        encoder_model = torch.hub.load('rwightman/gen-efficientnet-pytorch', encoder_name, pretrained=True)
+        encoder_model = torch.hub.load('rwightman/gen-efficientnet-pytorch', encoder_name, pretrained=pretrained)
         print('Done.')
 
         # Remove last layer
@@ -368,11 +368,11 @@ class VGG_UnetAdaptiveBins(nn.Module):
             yield from m.parameters()
 
     @classmethod
-    def build_encoder(cls, n_bins, **kwargs):
+    def build_encoder(cls, n_bins, pretrained=True, **kwargs):
         encoder_name = 'Vgg-16_BN'
 
         print(f'Loading pre-trained encoder model ({encoder_name})...')
-        encoder_model = vgg16_bn(pretrained=True)
+        encoder_model = vgg16_bn(pretrained=pretrained)
         print('Done.')
         
         # # Remove last layer

@@ -3,6 +3,7 @@ import argparse
 def depth_arg():
 
     parser = argparse.ArgumentParser('Train a model')
+    parser.add_argument('--pretrain', default=True, help='use Pretrained or not')
     parser.add_argument('--logging_root', type=str, default='./logs_507', help='root for logging')
     parser.add_argument('--exp_name', type=str, default='baseline', help='experiment name')
     parser.add_argument('--steps_til_summary', default=1, type=int, help='steps to print loss')

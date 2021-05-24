@@ -123,8 +123,14 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     model.train(True)
     
     # we want to tune the parameter of the pretrained encoder more carefully
-    params = [{"params": model.get_1x_lr_params(), "lr": args.lr / 10},
-              {"params": model.get_10x_lr_params(), "lr": args.lr}]
+    if args.pretrained is True:
+        print('Using different learning rates')
+        params = [{"params": model.get_1x_lr_params(), "lr": args.lr / 10},
+                  {"params": model.get_10x_lr_params(), "lr": args.lr}]
+    else:
+        print('Using same learning rate')
+        params = model.parameters()
+        
     
     # define optimizer
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
@@ -261,11 +267,17 @@ if __name__ == '__main__':
         device = torch.device('cpu')
     print(device) 
     if args.name == 'UnetAdaptiveBins':
-        model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
-                                               max_val=args.max_depth, norm=args.norm)
+        model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, 
+                                               pretrained=args.pretrain, 
+                                               min_val=args.min_depth, 
+                                               max_val=args.max_depth, 
+                                               norm=args.norm)
     elif args.name == 'VGG_UnetAdaptiveBins':
-        model = VGG_UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
-                                               max_val=args.max_depth, norm=args.norm)
+        model = VGG_UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, 
+                                                   pretrained=args.pretrain,
+                                                   min_val=args.min_depth, 
+                                                   max_val=args.max_depth, 
+                                                   norm=args.norm)
     else:
         raise NotImplementedError('Not implemented for name={args.name}')
     
