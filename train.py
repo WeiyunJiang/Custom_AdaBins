@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 from evaluate import evaluate_model, RunningAverageDict
 
-def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args):
+def validation(model, optimizer, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args):
     with torch.no_grad():
         metrics_val = RunningAverageDict()
         model.eval()
@@ -81,28 +81,46 @@ def validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_a
         
         if metrics_val_value['abs_rel'] < best_val_abs_rel:
             best_val_abs_rel = metrics_val_value['abs_rel']
-            torch.save(model.state_dict(),
+            checkpoint = {
+                'epoch': epoch + 1,
+                'total_steps': total_steps + 1,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }
+            torch.save(checkpoint,
                        os.path.join(checkpoints_dir, 'model_best_val.pth'))
             np.savetxt(os.path.join(checkpoints_dir, 'best_psnr_epoch.txt'),
                        np.array([best_val_abs_rel, epoch]))
                 
     
     
-def train_model(model, model_dir, args, summary_fn=None, device=None):
+def train_model(model, optimizer, model_dir, args, summary_fn=None, device=None):
     if args.newloss is True:
         print("Using new loss function" + "!" * 100)
-    if os.path.exists(model_dir):
-        val = input("The model directory %s exists. Overwrite? (y/n)"%model_dir)
-        if val == 'y':
-            shutil.rmtree(model_dir)
-
-    os.makedirs(model_dir)
-
-    summaries_dir = os.path.join(model_dir, 'summaries')
-    utils.cond_mkdir(summaries_dir)
-
-    checkpoints_dir = os.path.join(model_dir, 'checkpoints')
-    utils.cond_mkdir(checkpoints_dir)
+    if args.resume is True:
+        
+        checkpoints_dir = os.path.join(model_dir, 'checkpoints')
+        PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
+        checkpoint = torch.load(PATH)
+        start_epoch = checkpoint['epoch']
+        print(f'Resume Training from epoch {start_epoch}')
+        model.load_state_dict(checkpoint['state_dict'])
+        print('model loaded')
+    
+        
+    else:
+        if os.path.exists(model_dir):
+            val = input("The model directory %s exists. Overwrite? (y/n)"%model_dir)
+            if val == 'y':
+                shutil.rmtree(model_dir)
+    
+        os.makedirs(model_dir)
+    
+        summaries_dir = os.path.join(model_dir, 'summaries')
+        utils.cond_mkdir(summaries_dir)
+    
+        checkpoints_dir = os.path.join(model_dir, 'checkpoints')
+        utils.cond_mkdir(checkpoints_dir)
 
     writer = SummaryWriter(summaries_dir)
     
@@ -138,7 +156,9 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     
     # define optimizer
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
-    
+    if checkpoint['optimizer'] is not None:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        print('optimizer loaded')
     # one cycle lr scheduler
     '''
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, epochs=args.epochs, 
@@ -149,14 +169,24 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                                               div_factor=args.div_factor,
                                               final_div_factor=args.final_div_factor)
     '''
-    total_steps = 0
+    if args.resume is True:
+        total_steps = checkpoint['total_steps']
+        print(f'total steps start from {total_steps}')
+    else:
+        total_steps = 0
+        print(f'total steps start from {total_steps}')
     metrics = RunningAverageDict()
     best_train_abs_rel = 100
     best_val_abs_rel = 100
     
     with tqdm(total=len(train_data_loader) * args.epochs) as pbar:
         for epoch in range(args.epochs):
-            print("Epoch {}/{}".format(epoch, args.epochs))
+            if args.resume is True:
+                epoch += start_epoch
+                total_epochs = args.epochs + start_epoch
+            else:
+                total_epochs = args.epochs
+            print("Epoch {}/{}".format(epoch, total_epochs))
             print('-' * 10)
             epoch_train_losses = []
             epoch_train_SILOG_losses = []
@@ -227,7 +257,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 
                 if not (total_steps+1) % args.steps_til_summary:
                     tqdm.write("Epoch [%d/%d], Step [%d/%d], Loss: %.4f, iteration time %0.6f sec" 
-                    % (epoch, args.epochs, step, len(train_data_loader), loss, time.time() - start_time))
+                    % (epoch, total_epochs, step, len(train_data_loader), loss, time.time() - start_time))
                     
                     torch.save(model.state_dict(),
                                os.path.join(checkpoints_dir, 'model_current.pth'))
@@ -252,7 +282,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
             writer.add_scalar("epoch_train_SILOG_loss", np.mean(epoch_train_SILOG_losses), epoch)
             
             ## validation
-            validation(model, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args)
+            validation(model, optimizer, model_dir, val_data_loader, epoch, total_steps, best_val_abs_rel, args)
 
 
 if __name__ == '__main__': 
@@ -267,6 +297,7 @@ if __name__ == '__main__':
     
     root_path = os.path.join(args.logging_root, args.exp_name)
     
+        
     
     gpu_ids = []
     if torch.cuda.is_available():
@@ -301,7 +332,7 @@ if __name__ == '__main__':
     total_n_params = utils.count_parameters(model)
     print(f'Total number of parameters of {args.name}: {total_n_params}')
     
-    args.epoch = 0 
+    #args.epoch = 0 
     args.last_epoch = -1
     
     train_model(model, root_path, args, summary_fn=None, device=device)

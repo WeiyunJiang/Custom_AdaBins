@@ -12,7 +12,7 @@ def depth_arg():
     parser.add_argument('--epochs_til_checkpoint', default=1, type=int, help='steps to save pt')
     parser.add_argument('--small_data_num', default=None, type=int, help='use small portion of dataset')
     parser.add_argument('--seed', default=42, type=int, help='random seed')
-    parser.add_argument('--epochs', default=25, type=int, help='number of total epochs to run')
+    parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
     parser.add_argument('--n-bins', '--n_bins', default=80, type=int,
                         help='number of bins/buckets to divide depth range into')
     parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float, help='max learning rate') # 0.000357
@@ -22,10 +22,10 @@ def depth_arg():
     parser.add_argument('--final-div-factor', '--final_div_factor', default=100, type=float,
                         help="final div factor for lr")
 
-    parser.add_argument('--batch_size', default=16, type=int, help='batch size') # 16
+    parser.add_argument('--batch_size', default=10, type=int, help='batch size') # 16
     parser.add_argument('--validate-every', '--validate_every', default=100, type=int, help='validation period')
     parser.add_argument('--gpu', default=None, type=int, help='Which gpu to use')
-    parser.add_argument("--name", default="VGG_UnetAdaptiveBins", help="{UnetAdaptiveBins, VGG_UnetAdaptiveBins}")
+    parser.add_argument("--name", default="UnetAdaptiveBins", help="{UnetAdaptiveBins, VGG_UnetAdaptiveBins}")
     parser.add_argument("--norm", default="linear", type=str, help="Type of norm/competition for bin-widths",
                         choices=['linear', 'softmax', 'sigmoid'])
     parser.add_argument("--same-lr", '--same_lr', default=False, action="store_true",
@@ -33,7 +33,7 @@ def depth_arg():
     parser.add_argument("--distributed", default=True, action="store_true", help="Use DDP if set")
     parser.add_argument("--root", default=".", type=str,
                         help="Root folder to save data in")
-    parser.add_argument("--resume", default='', type=str, help="Resume from checkpoint")
+    parser.add_argument("--resume", default=False, help="Resume from checkpoint")
 
     parser.add_argument("--notes", default='', type=str, help="Wandb notes")
     parser.add_argument("--tags", default='sweep', type=str, help="Wandb tags")
