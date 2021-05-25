@@ -1,10 +1,28 @@
 import argparse
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+    
 def depth_arg():
 
     parser = argparse.ArgumentParser('Train a model')
-    parser.add_argument('--data_aug', default=True, help='data augmentation or not')
-    parser.add_argument('--pretrain', default=True, help='use Pretrained or not')
+    parser.add_argument("--berhuloss", type=str2bool, nargs='?',
+                        const=True, default=False,
+                        help="Activate berhuloss mode.")
+    
+    parser.add_argument('--data_aug', type=str2bool, nargs='?',
+                        const=True, default=False,
+                        help='data augmentation or not')
+    parser.add_argument('--pretrain', type=str2bool, nargs='?',
+                        const=True, default=False,
+                        help='use Pretrained or not')
     parser.add_argument('--logging_root', type=str, default='./logs_507', help='root for logging')
     parser.add_argument('--exp_name', type=str, default='baseline', help='experiment name')
     parser.add_argument('--steps_til_summary', default=1, type=int, help='steps to print loss')
@@ -33,7 +51,9 @@ def depth_arg():
     parser.add_argument("--distributed", default=True, action="store_true", help="Use DDP if set")
     parser.add_argument("--root", default=".", type=str,
                         help="Root folder to save data in")
-    parser.add_argument("--resume", default=False, help="Resume from checkpoint")
+    parser.add_argument("--resume", type=str2bool, nargs='?',
+                        const=True, default=False,
+                        help="Resume from checkpoint")
 
     parser.add_argument("--notes", default='', type=str, help="Wandb notes")
     parser.add_argument("--tags", default='sweep', type=str, help="Wandb tags")

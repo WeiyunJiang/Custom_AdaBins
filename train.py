@@ -94,9 +94,9 @@ def validation(model, optimizer, model_dir, val_data_loader, epoch, total_steps,
                 
     
     
-def train_model(model, optimizer, model_dir, args, summary_fn=None, device=None):
-    if args.newloss is True:
-        print("Using new loss function" + "!" * 100)
+def train_model(model, model_dir, args, summary_fn=None, device=None):
+    if args.berhuloss is True:
+        print("Using new Berhu loss function" + "!" * 100)
     if args.resume is True:
         
         checkpoints_dir = os.path.join(model_dir, 'checkpoints')
@@ -156,7 +156,7 @@ def train_model(model, optimizer, model_dir, args, summary_fn=None, device=None)
     
     # define optimizer
     optimizer = optim.AdamW(params, weight_decay=args.wd, lr=args.lr)
-    if checkpoint['optimizer'] is not None:
+    if args.resume is True:
         optimizer.load_state_dict(checkpoint['optimizer'])
         print('optimizer loaded')
     # one cycle lr scheduler
@@ -215,7 +215,7 @@ def train_model(model, optimizer, model_dir, args, summary_fn=None, device=None)
                 loss_bin = criterion_bins(bins, depth)
                 
                 loss = loss_depth + args.w_chamfer * loss_bin
-                if args.newloss is True:
+                if args.berhuloss is True:
 
                     loss_new = criterion_new(pred, depth, mask=mask)
                     loss = loss + loss_new * 20
