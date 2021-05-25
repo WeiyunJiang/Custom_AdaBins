@@ -98,7 +98,7 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
     if args.berhuloss is True:
         print("Using new Berhu loss function" + "!" * 100)
     if args.resume is True:
-        
+        summaries_dir = os.path.join(model_dir, 'summaries')
         checkpoints_dir = os.path.join(model_dir, 'checkpoints')
         PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
         checkpoint = torch.load(PATH)
