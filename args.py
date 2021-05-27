@@ -16,7 +16,6 @@ def depth_arg():
     parser.add_argument("--berhuloss", type=str2bool, nargs='?',
                         const=True, default=False,
                         help="Activate berhuloss mode.")
-    
     parser.add_argument('--data_aug', type=str2bool, nargs='?',
                         const=True, default=False,
                         help='data augmentation or not')
@@ -43,7 +42,7 @@ def depth_arg():
     parser.add_argument('--batch_size', default=10, type=int, help='batch size') # 16
     parser.add_argument('--validate-every', '--validate_every', default=100, type=int, help='validation period')
     parser.add_argument('--gpu', default=None, type=int, help='Which gpu to use')
-    parser.add_argument("--name", default="UnetAdaptiveBins", help="{UnetAdaptiveBins, VGG_UnetAdaptiveBins}")
+    parser.add_argument("--name", default="UnetAdaptiveBins", help="{UnetSwinAdaptiveBins, UnetAdaptiveBins, VGG_UnetAdaptiveBins}")
     parser.add_argument("--norm", default="linear", type=str, help="Type of norm/competition for bin-widths",
                         choices=['linear', 'softmax', 'sigmoid'])
     parser.add_argument("--same-lr", '--same_lr', default=False, action="store_true",

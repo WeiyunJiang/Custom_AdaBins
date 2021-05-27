@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import vgg16_bn
 import utils
+from build import build_model
 
 class VGG_16(nn.Module):
     """ Naive VGG-16
@@ -109,6 +110,52 @@ class mViT(nn.Module):
         return bin_widths_normed, range_attention_maps
 
 
+class mSwin(nn.Module):
+    def __init__(self, num_decoded_ch, n_query_channels=128, patch_size=8, dim_out=100,
+                 embedding_dim=128, num_heads=4, norm='linear'):
+        super(mSwin, self).__init__()
+        self.norm = norm
+        self.n_query_channels = n_query_channels
+        # self.patch_transformer = PatchTransformerEncoder(num_decoded_ch, patch_size, embedding_dim, num_heads)
+        self.swin = build_model()
+        self.dot_product_layer = PixelWiseDotProduct()
+
+        self.conv3x3 = nn.Conv2d(num_decoded_ch, embedding_dim, kernel_size=3, stride=1, padding=1)
+        self.MLP = nn.Sequential(nn.Linear(embedding_dim, 256),
+                                       nn.LeakyReLU(),
+                                       nn.Linear(256, 256),
+                                       nn.LeakyReLU(),
+                                       nn.Linear(256, dim_out))
+        
+    
+    def forward(self, x):
+        # x (N, num_decoded_ch, 240, 320)
+        _, num_decoded_ch, _, _ = x.shape
+        tgt = self.swin(x.clone())  # (N, 384)
+        x = self.conv3x3(x) # (N, num_decoded_ch, 240, 320)
+
+        head, queries = tgt[:, :num_decoded_ch], tgt[:, num_decoded_ch:2*num_decoded_ch]
+        queries = queries.unsqueeze(0)
+        # regression_head (N, num_decoded_ch)
+        # queries (1, N, num_decoded_ch)
+        # discard rest of transformer output
+        
+        # (1, N, num_decoded_ch) --> (N, 1, num_decoded_ch)
+        queries = queries.permute(1, 0, 2)
+        range_attention_maps = self.dot_product_layer(x, queries)  # (N, 1, 240, 320)
+
+        bin_widths = self.MLP(head)  # (N, n_bins)
+        if self.norm == 'linear':
+            bin_widths = torch.relu(bin_widths)
+            eps = 0.1
+            bin_widths = bin_widths + eps
+        elif self.norm == 'softmax':
+            return torch.softmax(bin_widths, dim=1), range_attention_maps
+        else:
+            bin_widths = torch.sigmoid(bin_widths)
+        bin_widths_normed = bin_widths / bin_widths.sum(dim=1, keepdim=True)
+        return bin_widths_normed, range_attention_maps
+        
 
 class UpSample(nn.Module):
     def __init__(self, input_ch, output_ch):
@@ -236,6 +283,7 @@ class VGG_Encoder(nn.Module):
                 for keyb, valueb in value._modules.items():
                     features.append(valueb(features[-1]))
         return features
+    
 class UnetAdaptiveBins(nn.Module):
     def __init__(self, encoder_model, num_decoded_ch=128, n_bins=100, 
                  min_val=0.1, max_val=10, norm='linear'):
@@ -250,6 +298,82 @@ class UnetAdaptiveBins(nn.Module):
 
         
         self.conv_out = nn.Sequential(nn.Conv2d(num_decoded_ch, n_bins, kernel_size=1, stride=1, padding=0),
+                                      nn.Softmax(dim=1),
+                                      )
+        enc_n_params = utils.count_parameters(self.encoder)
+        print(f'Total number of parameters of encoder: {enc_n_params}')
+        dec_n_params = utils.count_parameters(self.decoder)
+        print(f'Total number of parameters of decoder: {dec_n_params}')
+        adabin_n_params = utils.count_parameters(self.adaptive_bins_layer)
+        print(f'Total number of parameters of adabin: {adabin_n_params}')
+
+    def forward(self, x, **kwargs):
+        decoded_features = self.decoder(self.encoder(x), **kwargs) # (N, num_decoded_ch, 240, 320)
+        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(decoded_features)
+        # bin_widths_normed (2, n_bins), range_attention_maps (N, num_decoded_ch, 240, 320)
+        range_bins_maps = self.conv_out(range_attention_maps) # (N, n_bins, 240, 320)
+
+        # Post process
+        # N, n_bins, H, W = range_bins_maps.shape
+        # hist = torch.sum(range_bins_maps.view(N, n_bins, H * W), dim=2) / (H * W)  # not used for training
+        
+        # map the bin intervals
+        bin_widths = (self.max_val - self.min_val) * bin_widths_normed  # (N, n_bins)
+        # add the min depth value to the front
+        bin_widths = nn.functional.pad(bin_widths, (1, 0), value=self.min_val) # (N, n_bins + 1)
+        bin_edges = torch.cumsum(bin_widths, dim=1) # (N, n_bins + 1)
+        # compute the width by taking the average of two adjacent bin widths
+        centers = 0.5 * (bin_edges[:, :-1] + bin_edges[:, 1:]) # (N, n_bins)
+        N, n_bins = centers.size()
+        centers = centers.view(N, n_bins, 1, 1) # (N, n_bins, 1, 1)
+
+        pred = torch.sum(range_bins_maps * centers, dim=1, keepdim=True) # (N, 1, 240, 320)
+
+        return centers.view(N, n_bins, 1), pred
+
+    def get_1x_lr_params(self):  # lr/10 learning rate
+        return self.encoder.parameters()
+
+    def get_10x_lr_params(self):  # lr learning rate
+        modules = [self.decoder, self.adaptive_bins_layer, self.conv_out]
+        for m in modules:
+            yield from m.parameters()
+
+    @classmethod
+    def build_encoder(cls, n_bins, pretrained=True, **kwargs):
+        encoder_name = 'tf_efficientnet_b5_ap'
+
+        print(f'Loading pre-trained encoder model ({encoder_name})...')
+        encoder_model = torch.hub.load('rwightman/gen-efficientnet-pytorch', encoder_name, pretrained=pretrained)
+        print('Done.')
+
+        # Remove last layer
+        print('Removing last two layers (global_pool & classifier).')
+        encoder_model.global_pool = nn.Identity()
+        encoder_model.classifier = nn.Identity()
+        
+        total_n_params = utils.count_parameters(encoder_model)
+        print(f'Total number of parameters of {encoder_name}: {total_n_params}')
+        # Building Encoder-Decoder model
+        print('Building Encoder-Decoder model..', end='')
+        m = cls(encoder_model, n_bins=n_bins, **kwargs)
+        print('Done.')
+        return m
+
+class UnetSwinAdaptiveBins(nn.Module):
+    def __init__(self, encoder_model, num_decoded_ch=128, n_bins=100, 
+                 min_val=0.1, max_val=10, norm='linear'):
+        super(UnetSwinAdaptiveBins, self).__init__()
+        self.min_val = min_val
+        self.max_val = max_val
+        self.encoder = Encoder(encoder_model)
+        self.decoder = Decoder(num_decoded_ch=num_decoded_ch)
+        self.adaptive_bins_layer = mSwin(num_decoded_ch=num_decoded_ch, n_query_channels=128, 
+                                        patch_size=8, dim_out=n_bins, embedding_dim=num_decoded_ch,
+                                        norm=norm)
+
+        
+        self.conv_out = nn.Sequential(nn.Conv2d(1, n_bins, kernel_size=1, stride=1, padding=0),
                                       nn.Softmax(dim=1),
                                       )
         enc_n_params = utils.count_parameters(self.encoder)
@@ -391,7 +515,7 @@ class VGG_UnetAdaptiveBins(nn.Module):
     
 if __name__ == '__main__':
     # model = UnetAdaptiveBins.build_encoder(n_bins=80)
-    model = VGG_UnetAdaptiveBins.build_encoder(n_bins=80)
+    model = UnetSwinAdaptiveBins.build_encoder(n_bins=80)
     x = torch.rand(2, 3, 240, 320)
     bins, pred = model(x)
     print(bins.shape, pred.shape)

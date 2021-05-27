@@ -12,7 +12,7 @@ import utils
 
 from tqdm import tqdm
 
-from models import VGG_16, UnetAdaptiveBins, VGG_UnetAdaptiveBins
+from models import VGG_16, UnetAdaptiveBins, VGG_UnetAdaptiveBins, UnetSwinAdaptiveBins
 import dataio
 from dataio import Depth_Dataset
 from loss import SILogLoss, BinsChamferLoss, MSELoss, BerhuLoss
@@ -319,6 +319,12 @@ if __name__ == '__main__':
                                                    min_val=args.min_depth, 
                                                    max_val=args.max_depth, 
                                                    norm=args.norm)
+    elif args.name == 'UnetSwinAdaptiveBins':
+        model = UnetSwinAdaptiveBins.build_encoder(n_bins=args.n_bins, 
+                                               pretrained=args.pretrain, 
+                                               min_val=args.min_depth, 
+                                               max_val=args.max_depth, 
+                                               norm=args.norm)
     else:
         raise NotImplementedError('Not implemented for name={args.name}')
     
