@@ -93,7 +93,7 @@ if __name__ == '__main__':
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     checkpoints_dir = os.path.join(root_path, 'checkpoints')
     PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
-    checkpoint = torch.load(PATH)
+    checkpoint = torch.load(PATH) # dict for all states
     if args.name == 'UnetAdaptiveBins':
         model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
                                                max_val=args.max_depth, norm=args.norm)
