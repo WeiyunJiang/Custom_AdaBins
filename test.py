@@ -93,7 +93,7 @@ if __name__ == '__main__':
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
     checkpoints_dir = os.path.join(root_path, 'checkpoints')
     PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
-    train_state_dict = torch.load(PATH)
+    checkpoint = torch.load(PATH)
     if args.name == 'UnetAdaptiveBins':
         model = UnetAdaptiveBins.build_encoder(n_bins=args.n_bins, min_val=args.min_depth, 
                                                max_val=args.max_depth, norm=args.norm)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
                                                max_val=args.max_depth, norm=args.norm)
     else:
         raise NotImplementedError('Not implemented for name={args.name}')
-    model.load_state_dict(train_state_dict)
+    model.load_state_dict(checkpoint['state_dict'])
     model.to(device)
     test(model, test_data_loader, args)
     
