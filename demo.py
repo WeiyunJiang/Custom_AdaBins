@@ -101,6 +101,7 @@ def plot_gt_pred(pth_rgb, pth_gt):
     checkpoints_dir = os.path.join(root_path, 'checkpoints')
     PATH = os.path.join(checkpoints_dir, 'model_best_val.pth')
     train_state_dict = torch.load(PATH)
+    #inferHelper = InferenceHelper(train_state_dict['state_dict'], args, device)
     inferHelper = InferenceHelper(train_state_dict, args, device)
     centers, pred = inferHelper.predict_pil(img)
     print(np.shape(pred))
