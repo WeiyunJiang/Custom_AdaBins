@@ -213,12 +213,17 @@ def train_model(model, model_dir, args, summary_fn=None, device=None):
                 loss_depth = criterion_depth(pred, depth, mask=mask)
                 
                 loss_bin = criterion_bins(bins, depth)
-                
-                loss = loss_depth + args.w_chamfer * loss_bin
+                if args.berhuloss_only is not True:
+                    #print('Use complete silog loss')
+                    loss = loss_depth + args.w_chamfer * loss_bin
+                else:
+                    #print("Use complete berhu loss")
+                    loss = criterion_new(pred, depth, mask=mask) + args.w_chamfer * loss_bin
                 if args.berhuloss is True:
-
+                    #print('Use partial berhu loss')
                     loss_new = criterion_new(pred, depth, mask=mask)
                     loss = loss + loss_new * 20
+                
  
                 loss.backward()
                 

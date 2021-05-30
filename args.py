@@ -13,6 +13,9 @@ def str2bool(v):
 def depth_arg():
 
     parser = argparse.ArgumentParser('Train a model')
+    parser.add_argument("--berhuloss_only", type=str2bool, nargs='?',
+                        const=True, default=False,
+                        help="Activate complete berhuloss mode.")
     parser.add_argument("--berhuloss", type=str2bool, nargs='?',
                         const=True, default=False,
                         help="Activate berhuloss mode.")
