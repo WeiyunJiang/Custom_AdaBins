@@ -8,8 +8,8 @@ Added Features
 - Transfer learning of encoder
 
 ## Environment
-- conda env create -f environment_adabins.yml
-- conda activate adabins
+- `conda env create -f environment_adabins.yml`
+- `conda activate adabins`
 
 ## Prepare [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html) test set
 
