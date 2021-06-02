@@ -16,16 +16,20 @@ Custom_AdaBins
 
 ## effnet_mini_ViT (baseline)
 **Train**
-- `python train.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
+- `python train.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins --data_aug False --epochs 150 --batch_size 10`
+ 
 **Test**
 - `python test.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins`
 ## vgg16_mini_ViT 
 **Train**
 - `python train.py --exp_name vgg_mini_ViT --name VGG_UnetAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
-- `python train.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
+
+**Test**
+- `python test.py --exp_name vgg_mini_ViT --name VGG_UnetAdaptiveBins`
+
 ## vgg16_mini_Swin
-- **Train**
-- `python train.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
-## Test
 **Train**
 - `python train.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
+
+**Test**
+- `python test.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins `
