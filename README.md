@@ -1,5 +1,11 @@
 # Custom_AdaBins
-Custom_AdaBins
+Custom_AdaBins (reimplementation of AdaBins: https://github.com/shariqfarooq123/AdaBins)
+Added Features
+- VGG-16 encoder
+- Swin transformer AdaBins block
+- New Berhu loss function
+- Online data augmentation
+- Transfer learning of encoder
 ## Prepare [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html) test set
 
 - `mkdir dataset`
@@ -33,3 +39,6 @@ Custom_AdaBins
 
 **Test**
 - `python test.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins `
+
+##Demo##
+python demo.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins
