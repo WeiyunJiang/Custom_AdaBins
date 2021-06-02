@@ -1,7 +1,7 @@
 # Custom_AdaBins
 Custom_AdaBins
 ## Prepare [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html) test set
-```shell
+
 `mkdir dataset`
 `cd dataset`
 `mkdir nyu_depth_v2`
@@ -14,4 +14,4 @@ $ gdown https://drive.google.com/uc?id=1AysroWpfISmm-yRFGBgFTrLy6FjQwvwP
 $ wget http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
 ### Convert mat file to image files
 $ python extract_official_train_test_set_from_mat.py nyu_depth_v2_labeled.mat splits.mat ./dataset/nyu_depth_v2/official_splits/
-```
+
