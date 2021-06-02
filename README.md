@@ -6,6 +6,11 @@ Added Features
 - New Berhu loss function
 - Online data augmentation
 - Transfer learning of encoder
+
+## Environment
+- conda env create -f environment_adabins.yml
+- conda activate adabins
+
 ## Prepare [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html) test set
 
 - `mkdir dataset`
@@ -20,25 +25,55 @@ Added Features
 ### Convert mat file to image files
 - `python extract_official_train_test_set_from_mat.py nyu_depth_v2_labeled.mat splits.mat ./dataset/nyu_depth_v2/official_splits/`
 
-## effnet_mini_ViT (baseline)
+## effnet_mini_ViT_pretrain (baseline)
 **Train**
-- `python train.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins --data_aug False --epochs 150 --batch_size 10`
+- `python train.py --exp_name effnet_mini_ViT_pretrain --name UnetAdaptiveBins --pretrain True --data_aug False --epochs 150 --batch_size 10`
  
 **Test**
-- `python test.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins`
-## vgg16_mini_ViT 
+- `python test.py --exp_name effnet_mini_ViT_pretrain --name UnetAdaptiveBins`
+
+## vgg16_mini_ViT_pretrain 
 **Train**
-- `python train.py --exp_name vgg_mini_ViT --name VGG_UnetAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
+- `python train.py --exp_name vgg16_mini_ViT_pretrain --name VGG_UnetAdaptiveBins --pretrain True --data_aug False --epochs 150 --batch_size 10` 
 
 **Test**
-- `python test.py --exp_name vgg_mini_ViT --name VGG_UnetAdaptiveBins`
+- `python test.py --exp_name vgg16_mini_ViT_pretrain --name VGG_UnetAdaptiveBins`
 
-## vgg16_mini_Swin
+## effnet_mini_Swin_pretrain
 **Train**
-- `python train.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins --data_aug False --epochs 150 --batch_size 10` 
+- `python train.py --exp_name effnet_mini_Swin_pretrain --name UnetSwinAdaptiveBins --pretrain True --data_aug False --epochs 150 --batch_size 10` 
 
 **Test**
-- `python test.py --exp_name effnet_mini_Swin --name UnetSwinAdaptiveBins `
+- `python test.py --exp_name effnet_mini_Swin_pretrain --name UnetSwinAdaptiveBins `
 
-##Demo##
-python demo.py --exp_name effnet_mini_ViT --name UnetAdaptiveBins
+## effnet_mini_ViT_pretrain_aug
+**Train**
+- `python train.py --exp_name effnet_mini_ViT_pretrain_aug --name UnetAdaptiveBins --pretrain True --data_aug True --epochs 150 --batch_size 10`
+ 
+**Test**
+- `python test.py --exp_name effnet_mini_ViT_pretrain_aug --name UnetAdaptiveBins`
+
+## effnet_mini_ViT_no_pretrain
+**Train**
+- `python train.py --exp_name effnet_mini_ViT_aug --name UnetAdaptiveBins --pretrain False --data_aug False -- --epochs 150 --batch_size 10`
+ 
+**Test**
+- `python test.py --exp_name effnet_mini_ViT_aug --name UnetAdaptiveBins`
+
+## effnet_mini_ViT_no_pretrain_aug
+**Train**
+- `python train.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins --pretrain False --data_aug True -- --epochs 150 --batch_size 10`
+ 
+**Test**
+- `python test.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins`
+
+## effnet_mini_ViT_no_pretrain_aug
+**Train**
+- `python train.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins --pretrain False --data_aug True -- --epochs 150 --batch_size 10`
+ 
+**Test**
+- `python test.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins`
+
+## Demo
+**Example**
+python demo.py --exp_name effnet_mini_ViT_pretrain --name UnetAdaptiveBins
