@@ -2,9 +2,9 @@
 Custom_AdaBins
 ## Prepare [NYU Depth V2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html) test set
 ```shell
-$ mkdir dataset
-$ cd dataset
-$ mkdir nyu_depth_v2
+`mkdir dataset`
+`cd dataset`
+`mkdir nyu_depth_v2`
 $ cd nyu_depth_v2
 $ mkdir official_splits
 $ gdown https://drive.google.com/uc?id=1AysroWpfISmm-yRFGBgFTrLy6FjQwvwP
