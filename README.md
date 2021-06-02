@@ -67,12 +67,20 @@ Added Features
 **Test**
 - `python test.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins`
 
-## effnet_mini_ViT_no_pretrain_aug
+## effnet_mini_ViT_partial_berhu
 **Train**
-- `python train.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins --pretrain False --data_aug True -- --epochs 150 --batch_size 10`
+- `python train.py --exp_name effnet_mini_ViT_partial_berhu --berhuloss True --name UnetAdaptiveBins --pretrain False --data_aug True -- --epochs 150 --batch_size 10`
  
 **Test**
-- `python test.py --exp_name effnet_mini_ViT_no_pretrain_aug --name UnetAdaptiveBins`
+- `python test.py --exp_name effnet_mini_ViT_partial_berhu --name UnetAdaptiveBins`
+
+## effnet_mini_ViT_all_berhu
+**Train**
+- `python train.py --exp_name effnet_mini_ViT_all_berhu --berhuloss_only True --name UnetAdaptiveBins --pretrain False --data_aug True -- --epochs 150 --batch_size 10`
+ 
+**Test**
+- `python test.py --exp_name effnet_mini_ViT_all_berhu --name UnetAdaptiveBins`
+
 
 ## Demo
 **Example**
